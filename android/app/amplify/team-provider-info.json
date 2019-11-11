@@ -1,0 +1,14 @@
+{
+    "swt": {
+        "awscloudformation": {
+            "AuthRoleName": "amplify-steptracker-swt-223916-authRole",
+            "UnauthRoleArn": "arn:aws:iam::842611270150:role/amplify-steptracker-swt-223916-unauthRole",
+            "AuthRoleArn": "arn:aws:iam::842611270150:role/amplify-steptracker-swt-223916-authRole",
+            "Region": "us-east-2",
+            "DeploymentBucketName": "amplify-steptracker-swt-223916-deployment",
+            "UnauthRoleName": "amplify-steptracker-swt-223916-unauthRole",
+            "StackName": "amplify-steptracker-swt-223916",
+            "StackId": "arn:aws:cloudformation:us-east-2:842611270150:stack/amplify-steptracker-swt-223916/b6af5ec0-04cb-11ea-a5f7-066dd16eed5a"
+        }
+    }
+}
