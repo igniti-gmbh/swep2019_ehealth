@@ -6,5 +6,6 @@ type Device @model {
 type Step @model {
   id: ID!
   steps: Int!
+  timestamp:
   device: Device @connection(name: "DeviceSteps")
 }
