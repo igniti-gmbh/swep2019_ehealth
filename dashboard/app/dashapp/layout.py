@@ -6,8 +6,6 @@ import pandas as pd
 DateToday = pd.Timestamp.now().date()
 TimeNow = pd.Timestamp.now().time()
 
-layout = None
-
 layout = html.Div(
     [
         dcc.Store(id="aggregate_data"),

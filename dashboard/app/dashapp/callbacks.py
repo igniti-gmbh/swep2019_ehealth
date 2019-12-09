@@ -5,7 +5,6 @@ from ..python_firebase.firebase_connect import fireauth as fireauth, userdata
 
 
 def register_callbacks(dashapp):
-
     # dashapp.clientside_callback(
     #     ClientsideFunction(namespace="clientside", function_name="resize"),
     #     Output("output-clientside", "children"),
@@ -21,7 +20,6 @@ def register_callbacks(dashapp):
         else:
             raise PreventUpdate
 
-
     @dashapp.callback(
         Output("step_goal", "children"),
         [Input('interval-component', 'n_intervals')])
@@ -31,7 +29,6 @@ def register_callbacks(dashapp):
         else:
             raise PreventUpdate
 
-
     @dashapp.callback(
         Output("displayName", "children"),
         [Input('interval-component', 'n_intervals')])
@@ -40,7 +37,6 @@ def register_callbacks(dashapp):
             return userdata.displayName()
         else:
             raise PreventUpdate
-
 
     @dashapp.callback(
         Output("room", "children"),
@@ -59,7 +55,6 @@ def register_callbacks(dashapp):
             return userdata.age()
         else:
             raise PreventUpdate
-
 
     # @dashapp.callback(
     #     Output("count_graph", "figure"),

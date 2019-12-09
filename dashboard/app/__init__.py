@@ -38,9 +38,3 @@ def register_dashapps(app):
         dashapp.title = 'Ignite E-Health'
         dashapp.layout = layout
         register_callbacks(dashapp)
-
-
-def _protect_dashviews(dashapp):
-    for view_func in dashapp.server.view_functions:
-        if view_func.startswith(dashapp.config.url_base_pathname):
-            dashapp.server.view_functions[view_func] = login_required(dashapp.server.view_functions[view_func])

@@ -73,11 +73,13 @@ def passwordreset_post():
     flash('Sie erhalten eine E-Mail zum Zurücksetzen Ihrer E-Mail.')
     return redirect(url_for('server_bp.passwordreset'))
 
+
 @server_bp.route('/logout')
 def logout():
     fireauth.logout_user()
 
     return redirect(url_for('server_bp.index'))
+
 
 @server_bp.route('/')
 def index():
@@ -94,6 +96,5 @@ def profile():
 
 @server_bp.route('/dashboard')
 def dashboard():
-    #if not fireauth.is_user():
-        # return redirect(url_for('server_bp.login'))
-    return True
+    # if not fireauth.is_user():
+    return redirect('/dashboard/')
