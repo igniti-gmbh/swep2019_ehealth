@@ -1,3 +1,3 @@
-## Amazon Amplify CLI
+## Firebase
 
 https://firebase.google.com/docs/
