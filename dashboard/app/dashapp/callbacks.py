@@ -2,6 +2,7 @@ from dash.dependencies import Input, Output, ClientsideFunction
 import copy
 from dash.exceptions import PreventUpdate
 from ..python_firebase.firebase_connect import fireauth as fireauth, userdata
+import dash
 
 
 def register_callbacks(dashapp):
@@ -18,7 +19,7 @@ def register_callbacks(dashapp):
         if fireauth.is_user():
             return userdata.daily_steps()
         else:
-            raise PreventUpdate
+            return dash.no_update
 
     @dashapp.callback(
         Output("step_goal", "children"),
@@ -27,7 +28,7 @@ def register_callbacks(dashapp):
         if fireauth.is_user():
             return str(userdata.step_goal()) + '%'
         else:
-            raise PreventUpdate
+            return dash.no_update
 
     @dashapp.callback(
         Output("displayName", "children"),
@@ -36,7 +37,7 @@ def register_callbacks(dashapp):
         if fireauth.is_user():
             return userdata.displayName()
         else:
-            raise PreventUpdate
+            return dash.no_update
 
     @dashapp.callback(
         Output("room", "children"),
@@ -45,7 +46,17 @@ def register_callbacks(dashapp):
         if fireauth.is_user():
             return userdata.room()
         else:
-            raise PreventUpdate
+            return dash.no_update
+
+    @dashapp.callback(
+        Output("connection_status", "children"),
+        [Input('interval-component', 'n_intervals')]
+    )
+    def show_status(n):
+        if fireauth.is_user():
+            return "Connected"
+        else:
+            return "Disconnected"
 
     @dashapp.callback(
         Output("age", "children"),
@@ -54,7 +65,7 @@ def register_callbacks(dashapp):
         if fireauth.is_user():
             return userdata.age()
         else:
-            raise PreventUpdate
+            return dash.no_update
 
     # @dashapp.callback(
     #     Output("count_graph", "figure"),

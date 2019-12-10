@@ -29,7 +29,7 @@ layout = html.Div(
                                     style={"margin-bottom": "0px"},
                                 ),
                                 html.H5(
-                                    "Version 0.1", style={"margin-top": "0px"}
+                                    id="connection_status", style={"margin-top": "0px"}
                                 ),
                             ]
                         )
