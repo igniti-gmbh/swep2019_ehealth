@@ -1,7 +1,4 @@
-import firebase_admin
-from firebase_admin import credentials, firestore
+from firebase_admin import firestore
+from .firebase_connect import firebase_app
 
-cred = credentials.Certificate('./app/python_firebase/assets/FirestoreKey.json')
-app = firebase_admin.initialize_app(cred)
-
-store = firestore.client()
+store = firestore.client(app=firebase_app)

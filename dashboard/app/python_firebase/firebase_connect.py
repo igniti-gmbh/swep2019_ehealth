@@ -1,13 +1,8 @@
-import json
-from .firebase_custom import Firebase
-from .firestore_connect import store
+import firebase_admin
+from firebase_admin import credentials
 
-jsonfile = open('./app/python_firebase/assets/FirebaseKey.json')
-firebaseConfig = json.load(jsonfile)
-
-firebaseObj = Firebase(firebaseConfig)
-fireauth = firebaseObj.auth()
-
+cred = credentials.Certificate('./app/python_firebase/assets/FirebaseKey.json')
+firebase_app = firebase_admin.initialize_app(cred)
 
 class Userdata(object):
 

@@ -1,37 +1,61 @@
-import json
-import requests
+# Server Routes for Flask
+import datetime
+import time
+
+import flask
+from firebase_admin import auth
+from firebase_admin import exceptions
 from flask import Blueprint, render_template, redirect, url_for, request, flash
-from app.dashapp.assets.dynamicnav import dynamicnav
-from app.python_firebase.firebase_connect import fireauth, userdata
+
+from .python_firebase.firebase_connect import firebase_app
 
 server_bp = Blueprint('server_bp', __name__)
 
 
 @server_bp.route('/login')
 def login():
-    return render_template('login.html', navigation=dynamicnav())
+    return render_template('login.html', navigation=dynamic_nav())
 
 
 @server_bp.route('/login', methods=['POST'])
 def login_post():
+    from .python_firebase.firebase_custom import fireAuth
+
     email = request.form.get('email')
     password = request.form.get('password')
 
-    try:
-        fireauth.sign_in_with_email_and_password(email, password)
-        userdata.get_data()
-    except requests.exceptions.HTTPError as e:
-        if e != "":
-            code = json.loads(e.strerror)
-            flash(code["error"]["message"])
-            return redirect(url_for('server_bp.login'))
+    user = fireAuth.sign_in_with_email_and_password(email, password)
+    id_token = user['idToken']
 
-    return redirect(url_for("server_bp.profile"))
+    try:
+        # Create the session cookie. This will also verify the ID token in the process.
+        # The session cookie will have the same claims as the ID token.
+        decoded_claims = auth.verify_id_token(id_token, app=firebase_app)
+
+        # Only process if the user signed in within the last 5 minutes.
+        if time.time() - decoded_claims['auth_time'] < 5 * 60:
+            expires_in = datetime.timedelta(days=5)
+            expires = datetime.datetime.now() + expires_in
+            session_cookie = auth.create_session_cookie(id_token, expires_in=expires_in, app=firebase_app)
+            response = flask.make_response(redirect(url_for('server_bp.profile')))
+
+            # Cookie setzen, wenn unter SSL
+            # response.set_cookie("session", session_cookie, expires=expires, httponly=True, secure=True,
+            # domain='localhosz:5000')
+            response.set_cookie("session", session_cookie, expires=expires, domain='dev.localhost:5000')
+            return response
+        # User did not sign in recently. To guard against ID token theft, require
+        # re-authentication.
+        return flask.abort(401, 'Recent sign in required')
+    except auth.InvalidIdTokenError:
+        return flask.abort(401, 'Invalid ID token')
+    except exceptions.FirebaseError:
+        return flask.abort(401, 'Failed to create a session cookie')
 
 
 @server_bp.route('/signup')
 def signup():
-    return render_template('signup.html', navigation=dynamicnav())
+    return render_template('signup.html', navigation=dynamic_nav())
 
 
 @server_bp.route('/signup', methods=['POST'])
@@ -40,61 +64,67 @@ def signup_post():
     email = request.form.get('email')
     password = request.form.get('password')
 
-    try:
-        user = fireauth.create_user_with_email_and_password(email, password)
-    except requests.exceptions.HTTPError as e:
-        if e != "":
-            code = json.loads(e.strerror)
-            flash(code["error"]["message"])
-            return redirect(url_for('server_bp.signup'))
+    new_user = auth.create_user(email=email, password=password, display_name=name, app=firebase_app)
 
-    fireauth.send_email_verification(user['idToken'])
-    fireauth.change_username(user['idToken'], name)
-    return redirect(url_for('server_bp.login'))
-
-
-@server_bp.route('/passwordreset')
-def passwordreset():
-    return render_template('passwordreset.html', navigation=dynamicnav())
-
-
-@server_bp.route('/passwordreset')
-def passwordreset_post():
-    email = request.form.get('email')
-
-    try:
-        fireauth.request_passwordreset(email=email)
-    except requests.exceptions.HTTPError as e:
-        if e != "":
-            code = json.loads(e.strerror)
-            flash(code["error"]["message"])
-            return redirect(url_for('server_bp.passwordreset'))
-
-    flash('Sie erhalten eine E-Mail zum Zurücksetzen Ihrer E-Mail.')
-    return redirect(url_for('server_bp.passwordreset'))
+    if new_user is not None:
+        return redirect('/login')
+    else:
+        flash('Nutzer konnte nicht registriert werden.')
+        return redirect(url_for('/signup'))
 
 
 @server_bp.route('/logout')
 def logout():
-    fireauth.logout_user()
-
-    return redirect(url_for('server_bp.index'))
+    session_cookie = request.cookies.get('session')
+    try:
+        decoded_claims = auth.verify_session_cookie(session_cookie, app=firebase_app)
+        auth.revoke_refresh_tokens(decoded_claims['sub'], app=firebase_app)
+        response = flask.make_response(redirect('/login'))
+        response.set_cookie('session', expires=0)
+        return response
+    except auth.InvalidSessionCookieError:
+        return redirect('/login')
 
 
 @server_bp.route('/')
 def index():
-    return render_template('index.html', navigation=dynamicnav())
+    return render_template('index.html', navigation=dynamic_nav())
 
 
 @server_bp.route('/profile')
 def profile():
-    if fireauth.current_user:
-        return render_template('profile.html', name=fireauth.current_user['displayName'], navigation=dynamicnav())
+
+    decoded_cookie = has_cookie_access()
+    if not decoded_cookie:
+        return redirect('/login')
     else:
-        return redirect(url_for("server_bp.login"))
+        return render_template('profile.html', name=decoded_cookie['name'], navigation=dynamic_nav())
 
 
 @server_bp.route('/dashboard')
 def dashboard():
-    # if not fireauth.is_user():
-    return redirect('/dashboard/')
+    decoded_cookie = has_cookie_access()
+    if not decoded_cookie:
+        return redirect('/login')
+    else:
+        return redirect('/dashboard/')
+
+
+def dynamic_nav():
+    session_cookie = has_cookie_access()
+    if not session_cookie:
+        return "mainnav.html"
+    else:
+        return "usernav.html"
+
+
+def has_cookie_access():
+    session_cookie = request.cookies.get('session')
+    if not session_cookie:
+        return False
+    try:
+        decode_claims = auth.verify_session_cookie(session_cookie, check_revoked=True, app=firebase_app)
+        return decode_claims
+    except auth.InvalidSessionCookieError:
+        # Session cookie is invalid, expired or revoked. Force user to login.
+        return False
