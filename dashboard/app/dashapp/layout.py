@@ -6,17 +6,14 @@ import pandas as pd
 DateToday = pd.Timestamp.now().date()
 TimeNow = pd.Timestamp.now().time()
 
-layout = html.Div(
+loggedin = html.Div(
     [
-        dcc.Store(id="aggregate_data"),
-        # empty Div to trigger javascript file for graph resizing
-        html.Div(id="output-clientside"),
         html.Div(
             [
                 html.Div(
                     [
-                        html.P(DateToday.strftime('%d.%m.%Y')),
-                        html.P(TimeNow.strftime('%H:%M')),
+                        html.P(id="current_date"),
+                        html.P(id="current_time"),
                     ],
                     className="one-third column",
                 ),
@@ -41,7 +38,7 @@ layout = html.Div(
                     [
                         html.A(
                             html.Button("Logout", id="logout-button"),
-                            href="#",
+                            href="/logout",
                         )
                     ],
                     className="one-third column",
@@ -149,7 +146,7 @@ layout = html.Div(
 
         dcc.Interval(
             id='interval-component',
-            interval=1 * 100000,  # in milliseconds
+            interval=1 * 10000,  # in milliseconds
             n_intervals=0
         ),
 
@@ -157,6 +154,65 @@ layout = html.Div(
     id="mainContainer",
     style={"display": "flex", "flex-direction": "column"},
 )
+
+loggedout = html.Div(
+    [
+        html.Div(
+            [
+                html.Div(
+                    [
+                        html.P(DateToday.strftime('%d.%m.%Y')),
+                        html.P(TimeNow.strftime('%H:%M')),
+                    ],
+                    className="one-third column",
+                ),
+                html.Div(
+                    [
+                        html.Div(
+                            [
+                                html.H3(
+                                    "Du bist nicht eingeloggt",
+                                    style={"margin-bottom": "0px"},
+                                ),
+                                html.H5(
+                                    id="connection_status", style={"margin-top": "0px"}
+                                ),
+                            ]
+                        )
+                    ],
+                    className="one-half column",
+                    id="title",
+                ),
+                html.Div(
+                    [
+                        html.A(
+                            html.Button("Logout", id="logout-button"),
+                            href="#",
+                        )
+                    ],
+                    className="one-third column",
+                    id="button",
+                ),
+            ],
+            id="header",
+            className="row flex-display",
+            style={"margin-bottom": "25px"},
+        ),
+        dcc.Interval(
+            id='interval-component',
+            interval=1 * 10000,  # in milliseconds
+            n_intervals=0
+        ),
+
+    ],
+    id="mainContainer",
+    style={"display": "flex", "flex-direction": "column"},
+)
+
+
+def serve_layout():
+        return loggedin
+
 
 # HTML Header
 index_string = '''

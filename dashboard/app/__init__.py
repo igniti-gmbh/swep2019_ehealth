@@ -2,6 +2,7 @@ from dash import dash
 from flask import Flask
 import os
 from config import BaseConfig
+from .helper_functions import has_cookie_access
 
 
 def create_app():
@@ -21,7 +22,7 @@ def register_blueprints(server):
 
 
 def register_dashapps(app):
-    from app.dashapp.layout import layout
+    from app.dashapp.layout import serve_layout
     from app.dashapp.callbacks import register_callbacks
 
     # Meta tags for viewport responsiveness
@@ -36,5 +37,5 @@ def register_dashapps(app):
 
     with app.app_context():
         dashapp.title = 'Ignite E-Health'
-        dashapp.layout = layout
+        dashapp.layout = serve_layout
         register_callbacks(dashapp)

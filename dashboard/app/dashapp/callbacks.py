@@ -1,71 +1,91 @@
 from dash.dependencies import Input, Output, ClientsideFunction
 import copy
-from dash.exceptions import PreventUpdate
 import dash
+from dash.exceptions import PreventUpdate
+from .callback_functions import has_cookie_access
+import pandas as pd
+from flask import session
 
 
 def register_callbacks(dashapp):
-    # dashapp.clientside_callback(
-    #     ClientsideFunction(namespace="clientside", function_name="resize"),
-    #     Output("output-clientside", "children"),
-    #     [Input("count_graph", "figure")],
-    # )
 
-    # @dashapp.callback(
-    #     Output("stepsToday", "children"),
-    #     [Input('interval-component', 'n_intervals')])
-    # def reload_steps_today(n):
-    #     if fireauth.is_user():
-    #         return userdata.daily_steps()
-    #     else:
-    #         return dash.no_update
-    #
-    # @dashapp.callback(
-    #     Output("step_goal", "children"),
-    #     [Input('interval-component', 'n_intervals')])
-    # def reload_steps_goal(n):
-    #     if fireauth.is_user():
-    #         return str(userdata.step_goal()) + '%'
-    #     else:
-    #         return dash.no_update
-    #
-    # @dashapp.callback(
-    #     Output("displayName", "children"),
-    #     [Input('interval-component', 'n_intervals')])
-    # def show_displayName(n):
-    #     if fireauth.is_user():
-    #         return userdata.displayName()
-    #     else:
-    #         return dash.no_update
-    #
-    # @dashapp.callback(
-    #     Output("room", "children"),
-    #     [Input('interval-component', 'n_intervals')])
-    # def show_room(n):
-    #     if fireauth.is_user():
-    #         return userdata.room()
-    #     else:
-    #         return dash.no_update
-    #
-    # @dashapp.callback(
-    #     Output("connection_status", "children"),
-    #     [Input('interval-component', 'n_intervals')]
-    # )
-    # def show_status(n):
-    #     if fireauth.is_user():
-    #         return "Connected"
-    #     else:
-    #         return "Disconnected"
-    #
-    # @dashapp.callback(
-    #     Output("age", "children"),
-    #     [Input('interval-component', 'n_intervals')])
-    # def get_age(n):
-    #     if fireauth.is_user():
-    #         return userdata.age()
-    #     else:
-    #         return dash.no_update
-    #
+    @dashapp.callback(
+        Output("connection_status", "children"),
+        [Input('interval-component', 'n_intervals')])
+    def show_status(n):
+        if has_cookie_access():
+            return "Connected"
+        else:
+            return "Disconnected"
+
+    @dashapp.callback(
+        Output("current_date", "children"),
+        [Input('interval-component', 'n_intervals')])
+    def show_date(n):
+        return pd.Timestamp.now().date().strftime('%d.%m.%Y')
+
+    @dashapp.callback(
+        Output("current_time", "children"),
+        [Input('interval-component', 'n_intervals')])
+    def show_date(n):
+        return pd.Timestamp.now().time().strftime('%H:%M')
+
+    @dashapp.callback(
+        Output("stepsToday", "children"),
+        [Input('interval-component', 'n_intervals')])
+    def reload_steps_today(n):
+
+        decode_claims = has_cookie_access()
+
+        if session['uid'] is None:
+            return "/"
+        else:
+            return session['steps_today_total']
+
+    @dashapp.callback(
+        Output("step_goal", "children"),
+        [Input('interval-component', 'n_intervals')])
+    def reload_steps_goal(n):
+        if session['uid'] is None:
+            return '/'
+        else:
+            goal_reached = session['steps_today_total'] / session['daily_step_goal']
+            return str(goal_reached) + '%'
+
+
+    @dashapp.callback(
+        Output("displayName", "children"),
+        [Input('interval-component', 'n_intervals')])
+    def show_displayName(n):
+        if session['uid'] is None:
+            return '/'
+        else:
+            return session['name']
+
+    @dashapp.callback(
+        Output("room", "children"),
+        [Input('interval-component', 'n_intervals')])
+    def show_room(n):
+        if session['uid'] is None:
+            return '/'
+        else:
+            if session['room'] is None:
+                return '/'
+            else:
+                return session['room']
+
+    @dashapp.callback(
+        Output("age", "children"),
+        [Input('interval-component', 'n_intervals')])
+    def get_age(n):
+        if session['uid'] is None:
+            return '/'
+        else:
+            if session['age'] is None:
+                return '/'
+            else:
+                return session['age']
+
     # # @dashapp.callback(
     # #     Output("count_graph", "figure"),
     # #     [Input('interval-component', 'n_intervals')])
@@ -120,5 +140,3 @@ def register_callbacks(dashapp):
     # #
     # #     figure = dict(data=data, layout=layout_count)
     # #     return figure
-
-    return None

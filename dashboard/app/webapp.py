@@ -3,13 +3,15 @@ import datetime
 import time
 
 import flask
-from firebase_admin import auth
+from firebase_admin import auth, firestore
 from firebase_admin import exceptions
-from flask import Blueprint, render_template, redirect, url_for, request, flash
+from flask import Blueprint, render_template, redirect, url_for, request, flash, session
 
 from .python_firebase.firebase_connect import firebase_app
 
 server_bp = Blueprint('server_bp', __name__)
+
+client = firestore.client(app=firebase_app)
 
 
 @server_bp.route('/login')
@@ -42,7 +44,7 @@ def login_post():
             # Cookie setzen, wenn unter SSL
             # response.set_cookie("session", session_cookie, expires=expires, httponly=True, secure=True,
             # domain='localhosz:5000')
-            response.set_cookie("session", session_cookie, expires=expires, domain='dev.localhost:5000')
+            response.set_cookie("loggedInCookie", session_cookie, expires=expires, httponly=True)
             return response
         # User did not sign in recently. To guard against ID token theft, require
         # re-authentication.
@@ -75,7 +77,7 @@ def signup_post():
 
 @server_bp.route('/logout')
 def logout():
-    session_cookie = request.cookies.get('session')
+    session_cookie = request.cookies.get('loggedInCookie')
     try:
         decoded_claims = auth.verify_session_cookie(session_cookie, app=firebase_app)
         auth.revoke_refresh_tokens(decoded_claims['sub'], app=firebase_app)
@@ -98,7 +100,17 @@ def profile():
     if not decoded_cookie:
         return redirect('/login')
     else:
-        return render_template('profile.html', name=decoded_cookie['name'], navigation=dynamic_nav())
+        session['uid'] = decoded_cookie['uid']
+        session['name'] = decoded_cookie['name']
+
+        document = client.document('users', session['uid']).get().to_dict()
+        session['age'] = document['age']
+        session['daily_step_goal'] = document['daily_step_goal']
+        session['position'] = document['position']
+        session['room'] = document['steps_device']
+        session['steps_today_total'] = document['steps_today_total']
+
+        return render_template('profile.html', name=session['name'], navigation=dynamic_nav())
 
 
 @server_bp.route('/dashboard')
@@ -119,7 +131,7 @@ def dynamic_nav():
 
 
 def has_cookie_access():
-    session_cookie = request.cookies.get('session')
+    session_cookie = request.cookies.get('loggedInCookie')
     if not session_cookie:
         return False
     try:
