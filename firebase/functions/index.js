@@ -25,26 +25,44 @@ exports.addUserToDB = functions.auth.user().onCreate((user) => {
 
 /* User wird aus Firebase gelöscht */
 exports.deleteUserFromDB = functions.auth.user().onDelete((user) => {
-   db.collection('users').doc(user.uid).delete()
-       .catch(err => {console.log('User konnte nicht entfernt werden :' + err)})
+    db.collection('users').doc(user.uid).delete()
+        .catch(err => {
+            console.log('User konnte nicht entfernt werden :' + err)
+        })
 });
 
 
-/* Aggregiert Daten */
-exports.moveSteps = functions.firestore
-    .document('/devices/{deviceId}/steps/{docId}')
+// Reset der daily steps
+exports.scheduledStepsReset = functions.pubsub.schedule('0 0 * * *').onRun((context) => {
+    let usersRef = db.collection('users');
+    let allUsers = usersRef.get()
+        .then(snapshot => {
+            snapshot.forEach(doc => {
+                return doc.ref.set({steps_today_total: 0}, {merge: true});
+            });
+            return true;
+        })
+        .catch(err => {
+            console.log('Dokumente konnten nicht erreicht werden', err)
+        })
+
+});
+
+/*
+exports.moveTemperature = functions.firestore
+    .document('devices/{deviceId}/temperature/{docId}')
     .onCreate((snap, context) => {
 
-        // User ID, die zum device gehört holen.
+        //RoomId holen
+
         const deviceId = context.params.deviceId;
-        const user = db.doc('devices/' + deviceId).get()
+        const room = db.doc('devices/' + deviceId).get()
             .then(documentSnapshot => {
-                return documentSnapshot.get('userId');
+                return documentSnapshot.get('roomId');
             });
 
-
-        // Wenn kein User existiert, dann Abbruch
-        if (!user.exists) {
+        // Checkt on roomId existiert
+        if (!room.exists) {
             return;
         }
 
@@ -61,41 +79,83 @@ exports.moveSteps = functions.firestore
         const hours = timestamp.getHours();
         // Value Variable
         const value = newDoc.value;
+
+        // TODO Wie speichern wir die Daten in den Räumen ab?
+        // Referenz wohin Wert geschrieben werden soll
+        let docRef = db.doc('rooms/' + room + '/' + year + '/' + month + '/' + day + '/' + hours);
+
+    });
+*/
+
+/* Aggregiert Daten */
+exports.moveSteps = functions.firestore
+    .document('/devices/{deviceId}/steps/{docId}')
+    .onCreate(async (snap, context) => {
+
+        // User ID, die zum device gehört holen.
+        const deviceId = context.params.deviceId;
+        let devicesSnap = await db.doc('devices/' + deviceId).get();
+
+        let user = await devicesSnap.get('userId');
+
+        // Wenn kein User existiert, dann Abbruch
+        if (!user) {
+            console.log('User existiert nicht.');
+            return null;
+        }
+
+        // Erstelltes Document kopieren
+        const newDoc = await snap.data();
+
+
+        // In Javascript Timestamp verwandeln
+        let timestamp;
+        timestamp = await newDoc.timestamp.toDate();
+
+        // In Variablen teilen
+        const day = timestamp.getDate();
+        const month = timestamp.getMonth() + 1;
+        const year = timestamp.getFullYear();
+        const hours = timestamp.getHours();
+
+        // Value of new entry
+        const additionalSteps = await newDoc.value;
+
         // Referenz wohin Wert geschrieben werden soll
         let docRef = db.doc('users/' + user + '/' + year + '/' + month + '/' + day + '/' + hours);
 
 
         // Schritte zu Tagesergebnis hinzufügen
-        addToToday(timestamp, user, value);
+        await addToToday(timestamp, user, additionalSteps);
 
         // Schritte zu User verschieben
-        let current_steps = docRef.data().steps;
+        // Aktuellen Wert abgreifen
+        let currentSteps = await docRef.get().then((docSnap) => {
+            return docSnap.get('value');
+        });
 
-        if (!current_steps) {
-            current_steps = 0;
+        if (!currentSteps) {
+            currentSteps = 0;
         }
 
         // Löscht das aktuelle Dokument aus dem devices Bereich
-        let isdeleted = snap.ref.delete().catch(err => { console.log('Doc konnte nicht gelöscht werden: ' + err)});
-
-
-        if (isdeleted) {
-            docRef.set({steps: current_steps + value}, {merge: true}).catch(err => {
-                console.log('Fehler beim Ändern der Stundenschritte: ' + err)
-            });
-        }
+        return snap.ref.delete().then(() => {
+            return docRef.set({value: currentSteps + additionalSteps}, {merge: true});
+        });
     });
 
 // Vergleicht ob Snapshot von heute ist und fuegt es den daily steps hinzu
-function addToToday(docTimestamp, userId, value) {
+async function addToToday(docTimestamp, userId, value) {
 
-    const docDate = docTimestamp.setHours(0, 0, 0, 0);
-    const currentDate = new Date().setHours(0, 0, 0, 0);
+    let currentDate = new Date();
+    docTimestamp.setHours(0, 0, 0, 0);
+    currentDate.setHours(0, 0, 0, 0);
 
-    const userRef = db.doc('users/' + userId);
-    const steps = userRef.data().steps_today_total;
+    let userRef = db.doc('users/' + userId);
+    let userDoc = await userRef.get();
+    let steps = await userDoc.data().steps_today_total;
 
-    if (docDate.getTime() === currentDate.getTime()) {
+    if (docTimestamp.getTime() === currentDate.getTime()) {
         return userRef.set({steps_today_total: steps + value}, {merge: true});
     } else {
         return false;
