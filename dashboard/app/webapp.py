@@ -9,6 +9,7 @@ from flask import Blueprint, render_template, redirect, url_for, request, flash,
 
 from .python_firebase.firebase_connect import firebase_app
 
+
 server_bp = Blueprint('server_bp', __name__)
 
 client = firestore.client(app=firebase_app)
@@ -101,7 +102,6 @@ def profile():
         return redirect('/login')
     else:
         session['uid'] = decoded_cookie['uid']
-        session['name'] = decoded_cookie['name']
 
         document = client.document('users', session['uid']).get().to_dict()
         session['age'] = document['age']
@@ -110,7 +110,7 @@ def profile():
         session['room'] = document['steps_device']
         session['steps_today_total'] = document['steps_today_total']
 
-        return render_template('profile.html', name=session['name'], navigation=dynamic_nav())
+        return render_template('profile.html', navigation=dynamic_nav())
 
 
 @server_bp.route('/dashboard')

@@ -57,3 +57,4 @@ coverage.xml
 # Sphinx documentation
 docs/_build/
 dashboard/app/python_firebase/assets/FirebaseRESTKey.json
+dashboard/writing.py

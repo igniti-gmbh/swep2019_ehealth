@@ -211,7 +211,7 @@ loggedout = html.Div(
 
 
 def serve_layout():
-        return loggedin
+    return loggedin
 
 
 # HTML Header

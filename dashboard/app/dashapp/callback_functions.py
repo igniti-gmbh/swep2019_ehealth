@@ -1,4 +1,4 @@
-from flask import request, session
+from flask import request
 from firebase_admin import firestore, auth
 from ..python_firebase.firebase_connect import firebase_app
 

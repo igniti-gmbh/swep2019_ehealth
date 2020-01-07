@@ -1,14 +1,15 @@
-from dash.dependencies import Input, Output, ClientsideFunction
-import copy
-import dash
-from dash.exceptions import PreventUpdate
-from .callback_functions import has_cookie_access
+import datetime
+
 import pandas as pd
+import plotly.graph_objs as go
+from dash.dependencies import Input, Output
 from flask import session
+
+from .callback_functions import has_cookie_access
+from ..python_firebase.firestore_connect import store
 
 
 def register_callbacks(dashapp):
-
     @dashapp.callback(
         Output("connection_status", "children"),
         [Input('interval-component', 'n_intervals')])
@@ -40,7 +41,8 @@ def register_callbacks(dashapp):
         if session['uid'] is None:
             return "/"
         else:
-            return session['steps_today_total']
+            dic = store.document('users', session['uid']).get().to_dict()
+            return dic['steps_today_total']
 
     @dashapp.callback(
         Output("step_goal", "children"),
@@ -49,18 +51,24 @@ def register_callbacks(dashapp):
         if session['uid'] is None:
             return '/'
         else:
-            goal_reached = session['steps_today_total'] / session['daily_step_goal']
-            return str(goal_reached) + '%'
+            dic = store.document('users', session['uid']).get().to_dict()
+            goal_reached = dic['steps_today_total'] / dic['daily_step_goal'] * 100
 
+            if goal_reached > 100:
+                goal_reached = 100
+
+            return str(goal_reached) + '%'
 
     @dashapp.callback(
         Output("displayName", "children"),
         [Input('interval-component', 'n_intervals')])
-    def show_displayName(n):
+    def show_display_name(n):
         if session['uid'] is None:
             return '/'
         else:
-            return session['name']
+            if session['name']:
+                return session['name']
+            return '/'
 
     @dashapp.callback(
         Output("room", "children"),
@@ -84,7 +92,57 @@ def register_callbacks(dashapp):
             if session['age'] is None:
                 return '/'
             else:
-                return session['age']
+                dic = store.document('users', session['uid']).get().to_dict()
+                return dic['age']
+
+    @dashapp.callback(
+        Output("count_graph", "figure"),
+        [Input('interval-component', 'n_intervals')], )
+    def get_last_day(n):
+
+        uid = session['uid']
+
+        if uid is None:
+            return False
+        else:
+            values = []
+            hours = []
+
+            now = datetime.datetime.now()
+
+            for i in range(0, 23):
+                docRef = store.document(
+                    'users/' + str(uid) + '/' + str(now.year) + '/' + str(now.month) + '/' + str(now.day) + '/'
+                    + str(now.hour))
+
+                docSnap = docRef.get()
+
+                hours.append(now.hour)
+
+                if docSnap.exists:
+                    docDic = docSnap.to_dict()
+                    values.append(str(docDic['value']))
+                else:
+                    values.append(str(0))
+
+                now = now - datetime.timedelta(hours=1)
+
+            layout = dict(autosize=True,
+                          margin=dict(l=30, r=30, b=20, t=40),
+                          hovermode="closest",
+                          plot_bgcolor="#F9F9F9",
+                          paper_bgcolor="#F9F9F9",
+                          legend=dict(font=dict(size=10), orientation="h"),
+                          )
+
+            data = [go.Bar(
+                x=hours,
+                y=values
+            )]
+
+            fig = go.Figure(data=data, layout=layout)
+            fig.update_yaxes(rangemode="nonnegative")
+            return fig
 
     # # @dashapp.callback(
     # #     Output("count_graph", "figure"),
