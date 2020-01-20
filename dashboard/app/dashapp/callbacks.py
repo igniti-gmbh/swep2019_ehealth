@@ -1,6 +1,6 @@
 import datetime
 import json
-
+import dash
 import pandas as pd
 import plotly.graph_objs as go
 from dash.dependencies import Input, Output
@@ -21,8 +21,6 @@ def register_callbacks(dashapp):
         graphDf = createDataframe(df)
         totalSteps = dfTotal(graphDf)
         accountInfos = getAccInfos()
-
-
 
         datasets = {
             'df': graphDf.to_json(orient='split', date_format='iso'),
@@ -50,7 +48,7 @@ def register_callbacks(dashapp):
     @dashapp.callback(
         Output("current_time", "children"),
         [Input('intermediate-value', 'children')])
-    def show_date(n):
+    def show_time(n):
         return pd.Timestamp.now().time().strftime('%H:%M')
 
     @dashapp.callback(
@@ -59,9 +57,10 @@ def register_callbacks(dashapp):
     def reload_steps_goal(json_data):
         data = json.loads(json_data)
         total_steps = data['totalSteps']
-        step_goal = data['accountInfos']['daily_step_goal']
+        step_goal = data['accountInfos']['stepgoal']
 
         goal_reached = total_steps / int(step_goal) * 100
+        goal_reached = round(goal_reached, 2)
 
         if goal_reached > 100:
             goal_reached = 100
@@ -73,13 +72,24 @@ def register_callbacks(dashapp):
         [Input('intermediate-value', 'children')])
     def show_display_name(json_data):
         data = json.loads(json_data)
-        total_steps = data['totalSteps']
         name = data['accountInfos']['name']
 
         if name is None:
             return '/'
         else:
             return name
+
+    @dashapp.callback(
+        Output("position", "children"),
+        [Input('intermediate-value', 'children')])
+    def show_display_name(json_data):
+        data = json.loads(json_data)
+        position = data['accountInfos']['position']
+
+        if position is None:
+            return '/'
+        else:
+            return position
 
     @dashapp.callback(
         Output("room", "children"),
@@ -114,7 +124,7 @@ def register_callbacks(dashapp):
         return data['totalSteps']
 
     @dashapp.callback(
-        Output("count_graph", "figure"),
+        Output('hours_graph', "figure"),
         [Input('intermediate-value', 'children')])
     def show_graph(json_data):
 
@@ -124,16 +134,60 @@ def register_callbacks(dashapp):
         layout = dict(autosize=True,
                       margin=dict(l=30, r=30, b=20, t=40),
                       hovermode="closest",
-                      plot_bgcolor="#F9F9F9",
-                      paper_bgcolor="#F9F9F9",
+                      plot_bgcolor="#262a30",
+                      paper_bgcolor="#262a30",
                       legend=dict(font=dict(size=10), orientation="h"),
-                      xaxis=dict(type='category', title='hour'),
-                      yaxis=dict(title='steps', rangemode='nonnegative')
-                      )
+                      xaxis=dict(type='category', title='hour', color='#ededed'),
+                      yaxis=dict(title='steps', rangemode='nonnegative', color='#ededed'),)
 
         data = [go.Bar(
             x=df['hour'],
             y=df['value'],
+        )]
+
+        fig = go.Figure(data=data, layout=layout)
+        return fig
+
+    @dashapp.callback(
+        Output("days_graph", "figure"),
+        [Input('date-picker-range', 'start_date'), Input('date-picker-range', 'end_date')])
+    def show_day_graph(start_date, end_date):
+
+        layout = dict(autosize=True,
+                      margin=dict(l=30, r=30, b=20, t=40),
+                      hovermode="closest",
+                      plot_bgcolor="#262a30",
+                      paper_bgcolor="#262a30",
+                      legend=dict(font=dict(size=10), orientation="h"),
+                      xaxis=dict(type='category', title='days', color='#ededed'),
+                      yaxis=dict(title='steps', rangemode='nonnegative', color='#ededed'),
+                      )
+
+        if end_date is None:
+            fig = go.Figure(layout=layout)
+            return fig
+            raise dash.exceptions.PreventUpdate
+
+        start_date = datetime.datetime.strptime(start_date.split(' ')[0], '%Y-%m-%d')
+        end_date = datetime.datetime.strptime(end_date.split(' ')[0], '%Y-%m-%d')
+
+        dates = []
+        values = []
+
+        timedelta = end_date - start_date
+
+        date_list = [start_date + datetime.timedelta(days=x) for x in range(timedelta.days + 1)]
+
+        for date in date_list:
+            df_values = getValuesFromFirebase(date)
+            total = dfTotal(df_values)
+            dates.append(date.strftime('%d.%m.%Y'))
+            values.append(total)
+
+
+        data = [go.Bar(
+            x=dates,
+            y=values,
         )]
 
         fig = go.Figure(data=data, layout=layout)
@@ -157,7 +211,6 @@ def getValuesFromFirebase(date):
     snapshot = colRef.list_documents()
 
     for doc in snapshot:
-        value = None
         docID = doc.id
 
         for i in range(range_start, range_end, range_iteration):
@@ -184,9 +237,7 @@ def dfTotal(df):
 
 
 def getAccInfos():
-    uid = session['uid']
     json_file = {}
-    docRef = store.document('users/' + str(uid))
 
     dic = store.document('users', session['uid']).get().to_dict()
 

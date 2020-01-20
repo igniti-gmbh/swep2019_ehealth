@@ -10,7 +10,6 @@ import json
 
 from .python_firebase.firebase_connect import firebase_app
 
-
 server_bp = Blueprint('server_bp', __name__)
 
 client = firestore.client(app=firebase_app)
@@ -64,6 +63,39 @@ def login_post():
         return flask.abort(401, 'Failed to create a session cookie')
 
 
+@server_bp.route('/settings')
+def settings():
+    decoded_cookie = has_cookie_access()
+    if not decoded_cookie:
+        return redirect('/login')
+    else:
+        return render_template('settings.html', navigation=dynamic_nav())
+
+
+@server_bp.route('/settings', methods=['POST'])
+def settings_post():
+    name = request.form.get('name')
+    room = request.form.get('room')
+    stepgoal = request.form.get('stepgoal')
+    position = request.form.get('position')
+
+    data = {}
+
+    if name != '':
+        data.update({'name': name})
+    if room != '':
+        data.update({'room': room})
+    if stepgoal != '':
+        data.update({'stepgoal': stepgoal})
+    if position != '':
+        data.update({'position': position})
+
+    docRef = client.document('users/' + session['uid'])
+    docRef.update(data)
+
+    return redirect(url_for('server_bp.profile'))
+
+
 @server_bp.route('/signup')
 def signup():
     return render_template('signup.html', navigation=dynamic_nav())
@@ -113,7 +145,6 @@ def index():
 
 @server_bp.route('/profile')
 def profile():
-
     decoded_cookie = has_cookie_access()
     if not decoded_cookie:
         return redirect('/login')
@@ -121,21 +152,20 @@ def profile():
         session['uid'] = decoded_cookie['uid']
 
         document = client.document('users', session['uid']).get().to_dict()
-        vars = ['age', 'daily_step_goal', 'position', 'room', 'steps_device', 'name']
 
-        for i in vars:
-            if i in document:
-                session[i] = document[i]
-            else:
-                session[i] = None
+        name, room, stepgoal, position = '/', '/', '/', '/'
 
-        session['stepsTotal'] = 0
-        name = ""
+        if document['name'] is not None:
+            name = document['name']
+        if document['room'] is not None:
+            room = document['room']
+        if document['stepgoal'] is not None:
+            stepgoal = document['stepgoal']
+        if document['position'] is not None:
+            position = document['position']
 
-        if session['name'] is not None:
-            name = session['name']
-
-        return render_template('profile.html', name=name, navigation=dynamic_nav())
+        return render_template('profile.html', name=name, room=room,
+                               stepgoal=stepgoal, position=position, navigation=dynamic_nav())
 
 
 @server_bp.route('/dashboard')
@@ -162,6 +192,5 @@ def has_cookie_access():
     try:
         decode_claims = auth.verify_session_cookie(session_cookie, check_revoked=True, app=firebase_app)
         return decode_claims
-    except auth.InvalidSessionCookieError:
-        # Session cookie is invalid, expired or revoked. Force user to login.
+    except:
         return False

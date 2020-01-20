@@ -13,8 +13,7 @@ exports.addUserToDB = functions.auth.user().onCreate((user) => {
         email: user.email,
         room: null,
         position: null,
-        steps_device: null,
-        daily_step_goal: 10000,
+        stepgoal: 10000,
         age: null,
         name: user.displayName,
     };
@@ -113,8 +112,6 @@ exports.moveSteps = functions.firestore
         return await deleteOriginal(snap)
 
     });
-
-
 
 
 // Addiert sich zur totalen Summe zusammen
