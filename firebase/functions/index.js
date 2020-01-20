@@ -194,4 +194,24 @@ async function documentTheHour(snap, docRef, additionalSteps) {
 
 }
 
+//Bewegen der Arduino Daten aus Realtime DB in Firestore
 
+exports.moveArduinoData = functions.database.ref('/{deviceId}/{category}/{id}').onCreate(async (snapshot, context)=> {
+	const deviceId=context.params.deviceId;
+	const category=context.params.category;
+	const id=context.params.id;
+	const time=snapshot.child("time").val();
+	const value =parseFloat(snapshot.child("myData").val());
+	//console.log('testing '+context.params.category+" "+snapshot.child("time").val()+" "+snapshot.child("myData").val());
+	
+	
+    let data = {
+        [time]: value
+    };
+
+
+    return db.doc('devices/' + deviceId+'/'+category+'/'+time).set(data);
+	
+	//return {yeet:'test'};
+	
+});
