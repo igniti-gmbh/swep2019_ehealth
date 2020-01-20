@@ -1,6 +1,7 @@
 import dash_core_components as dcc
 import dash_html_components as html
 import pandas as pd
+import datetime
 
 # Time and date
 DateToday = pd.Timestamp.now().date()
@@ -72,7 +73,21 @@ loggedin = html.Div(
                     ), html.P(
                         id='room',
                         className="control_info",
-                    ),
+                    ), html.P("Einheit", className="control_label"),
+                        dcc.RadioItems(
+                            id="time_selector",
+                            options=[
+                                {"label": "Stunden", "value": "lastDay"},
+                                {"label": "Tage", "value": "yesterday"},
+                            ],
+                            value="lastDay",
+                            labelStyle={"display": "inline-block"},
+                            className="dcc_control",
+                        ),html.P("Datum", className="control_label"),
+                        dcc.DatePickerSingle(
+                            id='date-picker',
+                            date=str(datetime.datetime.now())
+                        ),
                     ],
                     className="pretty_container four columns",
                     id="cross-filter-options",
@@ -102,22 +117,10 @@ loggedin = html.Div(
                             className="row container-display",
                         ),
                         html.Div(
-                            [
-                                html.Div(
-                                    [html.H6("/"), html.P("Luftfeuchtigkeit")],
-                                    className="mini_container",
-                                ),
-                                html.Div(
-                                    [html.H6("/"), html.P("Letzte Bewegung")],
-                                    className="mini_container",
-                                ),
-                                html.Div(
-                                    [html.H6("/"), html.P("bis zur nächsten Bewegung")],
-                                    className="mini_container",
-                                ),
-                            ],
-                            id="info-container-two",
-                            className="row container-display",
+                            [dcc.Graph(id="count_graph",
+                                       config={'displayModeBar': False})],
+                            id='countGraphContainer',
+                            className="pretty_container",
                         ),
                     ],
                     id="right-column",
@@ -126,27 +129,15 @@ loggedin = html.Div(
             ],
             className="row flex-display",
         ),
+        # Hidden div inside the app that stores the intermediate value
         html.Div(
-            [
-                html.Div(
-                    [dcc.Graph(id="stepgoal_graph")],
-                    className="pretty_container four columns",
-                ),
-                html.Div(
-                    [dcc.Graph(id="count_graph",
-                               config={
-                                   'displayModeBar': False
-                               })],
-                    className="pretty_container",
-                    id="countGraphContainer"
-                ),
-            ],
-            className="row flex-display",
+            id='intermediate-value',
+            style={'display': 'none'}
         ),
 
         dcc.Interval(
             id='interval-component',
-            interval=1 * 10000,  # in milliseconds
+            interval=1 * 300000,  # in milliseconds
             n_intervals=0
         ),
 

@@ -1,11 +1,12 @@
 # Server Routes for Flask
 import datetime
 import time
-
+import requests
 import flask
 from firebase_admin import auth, firestore
 from firebase_admin import exceptions
 from flask import Blueprint, render_template, redirect, url_for, request, flash, session
+import json
 
 from .python_firebase.firebase_connect import firebase_app
 
@@ -27,7 +28,14 @@ def login_post():
     email = request.form.get('email')
     password = request.form.get('password')
 
-    user = fireAuth.sign_in_with_email_and_password(email, password)
+    try:
+        user = fireAuth.sign_in_with_email_and_password(email, password)
+    except requests.exceptions.HTTPError as e:
+        error_json = e.args[1]
+        error = json.loads(error_json)['error']
+        flash(error['message'])
+        return redirect(url_for('server_bp.login'))
+
     id_token = user['idToken']
 
     try:
@@ -67,7 +75,16 @@ def signup_post():
     email = request.form.get('email')
     password = request.form.get('password')
 
-    new_user = auth.create_user(email=email, password=password, display_name=name, app=firebase_app)
+    try:
+        new_user = auth.create_user(email=email, password=password, display_name=name, app=firebase_app)
+    except ValueError as e:
+        flash(str(e))
+        return redirect(url_for('server_bp.signup'))
+    except requests.exceptions.HTTPError as e:
+        error_json = e.args[1]
+        error = json.loads(error_json)['error']
+        flash(error['message'])
+        return redirect(url_for('server_bp.signup'))
 
     if new_user is not None:
         return redirect('/login')
@@ -104,13 +121,21 @@ def profile():
         session['uid'] = decoded_cookie['uid']
 
         document = client.document('users', session['uid']).get().to_dict()
-        session['age'] = document['age']
-        session['daily_step_goal'] = document['daily_step_goal']
-        session['position'] = document['position']
-        session['room'] = document['steps_device']
-        session['steps_today_total'] = document['steps_today_total']
+        vars = ['age', 'daily_step_goal', 'position', 'room', 'steps_device', 'name']
 
-        return render_template('profile.html', navigation=dynamic_nav())
+        for i in vars:
+            if i in document:
+                session[i] = document[i]
+            else:
+                session[i] = None
+
+        session['stepsTotal'] = 0
+        name = ""
+
+        if session['name'] is not None:
+            name = session['name']
+
+        return render_template('profile.html', name=name, navigation=dynamic_nav())
 
 
 @server_bp.route('/dashboard')
