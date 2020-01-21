@@ -137,8 +137,8 @@ void loop() {
   sendData("temperature", bme.temperature, timeClient.getEpochTime());
   sendData("pressure", bme.pressure, timeClient.getEpochTime());
   sendData("humidity", bme.humidity, timeClient.getEpochTime());
-  sendData("gas", 1.0f -bme.gas_resistance / 70000.0, timeClient.getEpochTime());
-
+  sendData("gas", 1.0 - double(bme.gas_resistance / 100000.0), timeClient.getEpochTime());
+  Serial.println(bme.gas_resistance);
   //warte bis zum nächsten durchlauf
   //delay(600000);
   readLine(600000);

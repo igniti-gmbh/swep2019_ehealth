@@ -1,5 +1,6 @@
 import datetime
-
+import json
+import dash
 import pandas as pd
 import plotly.graph_objs as go
 from dash.dependencies import Input, Output
@@ -11,8 +12,27 @@ from ..python_firebase.firestore_connect import store
 
 def register_callbacks(dashapp):
     @dashapp.callback(
+        Output('intermediate-value', 'children'),
+        [Input('date-picker', 'date'), Input('interval-component', 'n_intervals')], )
+    def clean_data(date, n):
+
+        date = datetime.datetime.strptime(date.split(' ')[0], '%Y-%m-%d')
+        df = getValuesFromFirebase(date)
+        graphDf = createDataframe(df)
+        totalSteps = dfTotal(graphDf)
+        accountInfos = getAccInfos()
+
+        datasets = {
+            'df': graphDf.to_json(orient='split', date_format='iso'),
+            'totalSteps': totalSteps,
+            'accountInfos': accountInfos,
+        }
+
+        return json.dumps(datasets)
+
+    @dashapp.callback(
         Output("connection_status", "children"),
-        [Input('interval-component', 'n_intervals')])
+        [Input('intermediate-value', 'children')])
     def show_status(n):
         if has_cookie_access():
             return "Connected"
@@ -21,180 +41,221 @@ def register_callbacks(dashapp):
 
     @dashapp.callback(
         Output("current_date", "children"),
-        [Input('interval-component', 'n_intervals')])
+        [Input('intermediate-value', 'children')])
     def show_date(n):
         return pd.Timestamp.now().date().strftime('%d.%m.%Y')
 
     @dashapp.callback(
         Output("current_time", "children"),
-        [Input('interval-component', 'n_intervals')])
-    def show_date(n):
+        [Input('intermediate-value', 'children')])
+    def show_time(n):
         return pd.Timestamp.now().time().strftime('%H:%M')
 
     @dashapp.callback(
-        Output("stepsToday", "children"),
-        [Input('interval-component', 'n_intervals')])
-    def reload_steps_today(n):
-
-        decode_claims = has_cookie_access()
-
-        if session['uid'] is None:
-            return "/"
-        else:
-            dic = store.document('users', session['uid']).get().to_dict()
-            return dic['steps_today_total']
-
-    @dashapp.callback(
         Output("step_goal", "children"),
-        [Input('interval-component', 'n_intervals')])
-    def reload_steps_goal(n):
-        if session['uid'] is None:
-            return '/'
-        else:
-            dic = store.document('users', session['uid']).get().to_dict()
-            goal_reached = dic['steps_today_total'] / dic['daily_step_goal'] * 100
+        [Input('intermediate-value', 'children')])
+    def reload_steps_goal(json_data):
+        data = json.loads(json_data)
+        total_steps = data['totalSteps']
+        step_goal = data['accountInfos']['stepgoal']
 
-            if goal_reached > 100:
-                goal_reached = 100
+        goal_reached = total_steps / int(step_goal) * 100
+        goal_reached = round(goal_reached, 2)
 
-            return str(goal_reached) + '%'
+        if goal_reached > 100:
+            goal_reached = 100
+
+        return str(goal_reached) + '%'
 
     @dashapp.callback(
         Output("displayName", "children"),
-        [Input('interval-component', 'n_intervals')])
-    def show_display_name(n):
-        if session['uid'] is None:
+        [Input('intermediate-value', 'children')])
+    def show_display_name(json_data):
+        data = json.loads(json_data)
+        name = data['accountInfos']['name']
+
+        if name is None:
             return '/'
         else:
-            if session['name']:
-                return session['name']
+            return name
+
+    @dashapp.callback(
+        Output("position", "children"),
+        [Input('intermediate-value', 'children')])
+    def show_display_name(json_data):
+        data = json.loads(json_data)
+        position = data['accountInfos']['position']
+
+        if position is None:
             return '/'
+        else:
+            return position
 
     @dashapp.callback(
         Output("room", "children"),
-        [Input('interval-component', 'n_intervals')])
-    def show_room(n):
-        if session['uid'] is None:
+        [Input('intermediate-value', 'children')])
+    def show_room(json_data):
+        data = json.loads(json_data)
+        room = data['accountInfos']['room']
+
+        if room is None:
             return '/'
         else:
-            if session['room'] is None:
-                return '/'
-            else:
-                return session['room']
+            return str(room)
 
     @dashapp.callback(
         Output("age", "children"),
-        [Input('interval-component', 'n_intervals')])
-    def get_age(n):
-        if session['uid'] is None:
+        [Input('intermediate-value', 'children')])
+    def show_age(json_data):
+        data = json.loads(json_data)
+        age = data['accountInfos']['age']
+
+        if age is None:
             return '/'
         else:
-            if session['age'] is None:
-                return '/'
-            else:
-                dic = store.document('users', session['uid']).get().to_dict()
-                return dic['age']
+            return str(age)
 
     @dashapp.callback(
-        Output("count_graph", "figure"),
-        [Input('interval-component', 'n_intervals')], )
-    def get_last_day(n):
+        Output("stepsToday", "children"),
+        [Input('intermediate-value', 'children')])
+    def reload_steps_today(json_data):
+        data = json.loads(json_data)
 
-        uid = session['uid']
+        return data['totalSteps']
 
-        if uid is None:
-            return False
-        else:
-            values = []
-            hours = []
+    @dashapp.callback(
+        Output('hours_graph', "figure"),
+        [Input('intermediate-value', 'children')])
+    def show_graph(json_data):
 
-            now = datetime.datetime.now()
+        data = json.loads(json_data)
+        df = pd.read_json(data['df'], orient='split')
 
-            for i in range(0, 23):
-                docRef = store.document(
-                    'users/' + str(uid) + '/' + str(now.year) + '/' + str(now.month) + '/' + str(now.day) + '/'
-                    + str(now.hour))
+        layout = dict(autosize=True,
+                      margin=dict(l=30, r=30, b=20, t=40),
+                      hovermode="closest",
+                      plot_bgcolor="#262a30",
+                      paper_bgcolor="#262a30",
+                      legend=dict(font=dict(size=10), orientation="h"),
+                      xaxis=dict(type='category', title='hour', color='#ededed'),
+                      yaxis=dict(title='steps', rangemode='nonnegative', color='#ededed'),)
 
-                docSnap = docRef.get()
+        data = [go.Bar(
+            x=df['hour'],
+            y=df['value'],
+        )]
 
-                hours.append(now.hour)
+        fig = go.Figure(data=data, layout=layout)
+        return fig
 
-                if docSnap.exists:
-                    docDic = docSnap.to_dict()
-                    values.append(str(docDic['value']))
-                else:
-                    values.append(str(0))
+    @dashapp.callback(
+        Output("days_graph", "figure"),
+        [Input('date-picker-range', 'start_date'), Input('date-picker-range', 'end_date')])
+    def show_day_graph(start_date, end_date):
 
-                now = now - datetime.timedelta(hours=1)
+        layout = dict(autosize=True,
+                      margin=dict(l=30, r=30, b=20, t=40),
+                      hovermode="closest",
+                      plot_bgcolor="#262a30",
+                      paper_bgcolor="#262a30",
+                      legend=dict(font=dict(size=10), orientation="h"),
+                      xaxis=dict(type='category', title='days', color='#ededed'),
+                      yaxis=dict(title='steps', rangemode='nonnegative', color='#ededed'),
+                      )
 
-            layout = dict(autosize=True,
-                          margin=dict(l=30, r=30, b=20, t=40),
-                          hovermode="closest",
-                          plot_bgcolor="#F9F9F9",
-                          paper_bgcolor="#F9F9F9",
-                          legend=dict(font=dict(size=10), orientation="h"),
-                          )
-
-            data = [go.Bar(
-                x=hours,
-                y=values
-            )]
-
-            fig = go.Figure(data=data, layout=layout)
-            fig.update_yaxes(rangemode="nonnegative")
+        if end_date is None:
+            fig = go.Figure(layout=layout)
             return fig
+            raise dash.exceptions.PreventUpdate
 
-    # # @dashapp.callback(
-    # #     Output("count_graph", "figure"),
-    # #     [Input('interval-component', 'n_intervals')])
-    # # def make_count_figure(n):
-    # #     layout_count = copy.deepcopy(layout)
-    # #
-    # #     g = df[["DATE", "STEPS"]]
-    # #     g = df[(g['DATE'] <= DateToday)]
-    # #     g.index = g["DATE"]
-    # #
-    # #     data = [
-    # #         dict(
-    # #             type="bar",
-    # #             x=g.index,
-    # #             y=g["STEPS"],
-    # #             name="Schritte",
-    # #             showlegend="false",
-    # #         ),
-    # #     ]
-    # #
-    # #     layout_count["title"] = "Schritte"
-    # #     layout_count["dragmode"] = "select"
-    # #     layout_count["showlegend"] = False
-    # #     layout_count["autosize"] = True
-    # #
-    # #     figure = dict(data=data, layout=layout_count)
-    # #     return figure
-    # #
-    # #
-    # # @dashapp.callback(
-    # #     Output("stepgoal_graph", "figure"),
-    # #     [Input('interval-component', 'n_intervals'),
-    # #      Input('stepsToday', "children")])
-    # # def make_stepgoal_figure(n, steps):
-    # #     layout_count = copy.deepcopy(layout)
-    # #     goal = 10000
-    # #
-    # #     data = [
-    # #         dict(
-    # #             type="indicator",
-    # #             mode="number+delta",
-    # #             value=steps,
-    # #             domain={'x': [0, 0.5], 'y': [0, 0.5]},
-    # #             delta={'reference': goal, 'relative': True, 'position': "top"}
-    # #         ),
-    # #     ]
-    # #
-    # #     layout_count["title"] = "Anderer Graph"
-    # #     layout_count["dragmode"] = "select"
-    # #     layout_count["showlegend"] = False
-    # #     layout_count["autosize"] = True
-    # #
-    # #     figure = dict(data=data, layout=layout_count)
-    # #     return figure
+        start_date = datetime.datetime.strptime(start_date.split(' ')[0], '%Y-%m-%d')
+        end_date = datetime.datetime.strptime(end_date.split(' ')[0], '%Y-%m-%d')
+
+        dates = []
+        values = []
+
+        timedelta = end_date - start_date
+
+        date_list = [start_date + datetime.timedelta(days=x) for x in range(timedelta.days + 1)]
+
+        for date in date_list:
+            df_values = getValuesFromFirebase(date)
+            total = dfTotal(df_values)
+            dates.append(date.strftime('%d.%m.%Y'))
+            values.append(total)
+
+
+        data = [go.Bar(
+            x=dates,
+            y=values,
+        )]
+
+        fig = go.Figure(data=data, layout=layout)
+        return fig
+
+
+def getValuesFromFirebase(date):
+    range_start = 23
+    range_end = -1
+    range_iteration = -1
+
+    date = date.replace(hour=23, minute=59, second=59)
+
+    # dataframe aus dem graph erstellt wird
+    df = pd.DataFrame(columns=['hour', 'value'])
+
+    day = date.day
+    colRef = store.collection(
+        'users/' + str(session['uid']) + '/' + str(date.year) + '/' + str(date.month) + '/'
+        + str(day))
+    snapshot = colRef.list_documents()
+
+    for doc in snapshot:
+        docID = doc.id
+
+        for i in range(range_start, range_end, range_iteration):
+
+            iterated_hour = date - datetime.timedelta(hours=i)
+
+            if int(docID) == iterated_hour.hour:
+                df_new = pd.DataFrame({
+                    'hour': [iterated_hour.hour],
+                    'value': doc.get().get('value'),
+                })
+                df = df.append(df_new)
+
+    return df
+
+
+def dfTotal(df):
+    total = 0
+
+    for index, row in df.iterrows():
+        total += row['value']
+
+    return total
+
+
+def getAccInfos():
+    json_file = {}
+
+    dic = store.document('users', session['uid']).get().to_dict()
+
+    for key in dic:
+        json_file.update({str(key): str(dic[key])})
+
+    return json_file
+
+
+def createDataframe(df):
+    for i in range(0, 24):
+        if i not in df['hour'].values:
+            df_new = pd.DataFrame({
+                'hour': [i],
+                'value': [0],
+            })
+            df = df.append(df_new)
+
+    df.sort_values(by=['hour'], inplace=True)
+
+    return df

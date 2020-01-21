@@ -13,6 +13,7 @@
         <columnConstraints>
           <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="100.0" />
           <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="100.0" />
+            <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="100.0" />
         </columnConstraints>
         <rowConstraints>
           <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
@@ -26,6 +27,9 @@
             <Label text="SSID" GridPane.columnIndex="1" />
             <Label text="Password" GridPane.columnIndex="1" GridPane.rowIndex="1" />
             <Label text="DeviceID" GridPane.columnIndex="1" GridPane.rowIndex="2" />
+            <Button mnemonicParsing="false" text="Set" GridPane.columnIndex="2" />
+            <Button mnemonicParsing="false" text="Set" GridPane.columnIndex="2" GridPane.rowIndex="1" />
+            <Button mnemonicParsing="false" text="Button" GridPane.columnIndex="2" GridPane.rowIndex="2" />
          </children>
          <BorderPane.margin>
             <Insets bottom="20.0" left="50.0" right="50.0" top="50.0" />
@@ -33,7 +37,7 @@
       </GridPane>
    </center>
    <bottom>
-      <Button mnemonicParsing="false" onAction="#programClicked" text="Program" BorderPane.alignment="CENTER">
+      <Button mnemonicParsing="false" onAction="#programClicked" text="Set all" BorderPane.alignment="CENTER">
          <BorderPane.margin>
             <Insets bottom="30.0" />
          </BorderPane.margin>
