@@ -16,12 +16,18 @@ import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModelProviders;
 import androidx.room.Room;
 
+import org.threeten.bp.LocalDate;
+import org.threeten.bp.LocalDateTime;
+import org.threeten.bp.LocalTime;
+
 import java.util.List;
 
+import uni.jena.swep.ehealth.FirebaseInterface;
 import uni.jena.swep.ehealth.R;
 import uni.jena.swep.ehealth.data_visualisation.RoomData;
 import uni.jena.swep.ehealth.data_visualisation.StepGoal;
 import uni.jena.swep.ehealth.data_visualisation.TotalStepDaily;
+import uni.jena.swep.ehealth.data_visualisation.TotalStepHourly;
 import uni.jena.swep.ehealth.data_visualisation.VisualDatabase;
 
 public class HomeFragment extends Fragment {
@@ -38,6 +44,45 @@ public class HomeFragment extends Fragment {
 
         // init database
         this.db = Room.databaseBuilder(getActivity().getApplicationContext(), VisualDatabase.class, "visualDB").allowMainThreadQueries().fallbackToDestructiveMigration().build();
+
+        // init firebase interface
+        FirebaseInterface fireinterface = new FirebaseInterface(getActivity().getApplicationContext());
+
+        // update steps taken and step goal
+        fireinterface.updateDailySteps();
+        fireinterface.updateDailyStepGoal();
+        fireinterface.updateRoomData();
+
+        // calculate total daily steps
+        // TODO move this to another place, by opening app etc.
+        // get all daily steps
+        // TODO implement better db query
+        LocalDateTime actual_date = LocalDateTime.of(LocalDate.now(), LocalTime.of(0, 0));
+        List<TotalStepHourly> actual_steps_all = db.getVisualDAO().getAllTotalStepsHourly();
+        int step_value = 0;
+
+        for (TotalStepHourly steps : actual_steps_all) {
+            if (steps.getTimestamp().isAfter(actual_date) || steps.getTimestamp().isEqual(actual_date)) {
+                step_value += steps.getNumber_steps();
+            }
+        }
+
+        // get actual value from local database
+        List<TotalStepDaily> steps = db.getVisualDAO().getActualDailySteps();
+
+        // set actual value
+        TotalStepDaily step;
+        if (steps.size() > 0) {
+            step = steps.get(steps.size() - 1);
+            // TODO check for steps from the actual day
+        } else {
+            step = new TotalStepDaily();
+        }
+        step.setTimestamp(LocalDate.now());
+        step.setNumber_steps(step_value);
+
+        // insert in local database
+        db.getVisualDAO().insert(step);
 
         // get data and init view model values
         List<TotalStepDaily> total_steps = this.db.getVisualDAO().getActualDailySteps();
@@ -108,8 +153,8 @@ public class HomeFragment extends Fragment {
             public void onChanged(RoomData rd) {
                 room_temp.setText("Raumtemperatur: " + rd.getTemp() + " Celsius");
                 room_air_humidity.setText("Luftfeuchtigkeit: " + rd.getHumidity() + "%");
-                room_co2.setText("CO2: " + rd.getGas());
-                room_pressure.setText("Druck: " + rd.getPressure());
+                room_co2.setText("CO Gehalt: " + rd.getGas() + "");
+                room_pressure.setText("Druck: " + rd.getPressure() + " Pascal");
             }
         });
 

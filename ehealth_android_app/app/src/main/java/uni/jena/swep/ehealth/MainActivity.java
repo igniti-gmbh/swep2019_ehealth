@@ -15,12 +15,12 @@ import androidx.work.WorkManager;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.widget.CompoundButton;
-import android.widget.Switch;
+import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -29,17 +29,12 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.gson.Gson;
 import com.jakewharton.threetenabp.AndroidThreeTen;
 
-import org.threeten.bp.LocalDate;
 import org.threeten.bp.LocalDateTime;
 import org.threeten.bp.ZoneId;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
-import uni.jena.swep.ehealth.data_visualisation.TotalStepHourly;
-import uni.jena.swep.ehealth.data_visualisation.VisualDatabase;
 import uni.jena.swep.ehealth.measure_movement.LocationLoggerListener;
 import uni.jena.swep.ehealth.measure_movement.MovementDatabase;
 import uni.jena.swep.ehealth.measure_movement.SigMotionListener;
@@ -57,7 +52,7 @@ public class MainActivity extends AppCompatActivity {
     StepsLoggerListener stepList = new StepsLoggerListener();
     SigMotionListener sigList = new SigMotionListener();
 
-    // TODO save values in database
+    // TODO save values in shared preferences
     private boolean step_tracking = true;
     private boolean motion_tracking = true;
     private boolean location_tracking = true;
@@ -90,17 +85,19 @@ public class MainActivity extends AppCompatActivity {
         main_toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(main_toolbar);
 
-        //FloatingActionButton fab = findViewById(R.id.fab);
-        //fab.setOnClickListener(new View.OnClickListener() {
-        //    @Override
-        //    public void onClick(View view) {
-        //        Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-        //                .setAction("Action", null).show();
-        //    }
-        //});
-
+        // create drawer
         DrawerLayout drawer = findViewById(R.id.drawer_layout);
         NavigationView navigationView = findViewById(R.id.nav_view);
+
+        // set username and email if logged in
+        // TODO name isn't displayed, get name attribute from firebase?
+        if (auth.getCurrentUser() != null) {
+            View headerView = navigationView.getHeaderView(0);
+            TextView nav_user = (TextView) headerView.findViewById(R.id.drawer_username);
+            TextView nav_email = (TextView) headerView.findViewById(R.id.drawer_email);
+            nav_user.setText(auth.getCurrentUser().getDisplayName());
+            nav_email.setText(auth.getCurrentUser().getEmail());
+        }
 
         // Passing each menu ID as a set of Ids because each
         // menu should be considered as top level destinations.
@@ -112,124 +109,33 @@ public class MainActivity extends AppCompatActivity {
         NavigationUI.setupActionBarWithNavController(this, navController, mAppBarConfiguration);
         NavigationUI.setupWithNavController(navigationView, navController);
 
-        // create room database
-        // TODO remove later or rename to userdata-database
-        //StepDatabase stepsDatabase = Room.databaseBuilder(this, StepDatabase.class, "mydb").allowMainThreadQueries().build();
-
-        // read userdata from firebase auth
-        if (auth.getCurrentUser() != null) {
-            // TODO set username and email
-            /*
-            TextView username = findViewById(R.id.textViewUserName);
-            username.setText(auth.getCurrentUser().getDisplayName());
-            TextView email = findViewById(R.id.textViewEmail);
-            email.setText(auth.getCurrentUser().getEmail());
-            */
+        // check if device id is assigned
+        SharedPreferences sharedPref = this.getSharedPreferences(getString(R.string.sp_file_name), Context.MODE_PRIVATE);
+        if (sharedPref.getString(getString(R.string.sp_device_id_key), null) == null && auth.getCurrentUser() != null) {
+            Log.v("deviceid", "No DeviceID found, generating a new one...");
+            // generate new device id and set it in shared preferences
+            FirebaseInterface firebaseInterface = new FirebaseInterface(this);
+            firebaseInterface.createDeviceDocument();
         }
 
+
         // create some random sensor test data
-        // TODO remove later
-        steps_db = Room.databaseBuilder(this, MovementDatabase.class, "mvmtDB").allowMainThreadQueries().build();
-
-       if (steps_db.getStepDAO().getItems().size() == 0) {
-
-           Random r = new Random();
-           int min1 = r.nextInt(50);
-           int min2 = r.nextInt(100 - min1) + min1;
-           int min3 = r.nextInt(150 - min2) + min2;
-           int last_step = 0;
-
-           int millis_in_one_day = 1000 * 60 * 60 * 24;
-           int millis_per_step = millis_in_one_day / 150;
-           LocalDateTime actual = LocalDateTime.now();
-           long begin_day = LocalDateTime.of(actual.getYear(), actual.getMonth(), actual.getDayOfMonth(), 0, 0, 0).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
-
-           for (int i = 0; i < min1; i++) {
-               StepEntity step = new StepEntity();
-               int new_step_count = last_step + r.nextInt(150 - 50) + 50;
-               last_step = new_step_count;
-               step.setAmount(new_step_count);
-               step.setIs_synchronized(false);
-               step.setTime(begin_day + millis_per_step * i);
-               steps_db.getStepDAO().insert(step);
-
-               //Log.v("init", "Step " + step.getTime() + " is " + step.getAmount());
-           }
-
-           for (int i = min1; i < min2; i++) {
-               StepEntity step = new StepEntity();
-               int new_step_count = last_step + r.nextInt(250 - 50) + 50;
-               last_step = new_step_count;
-               step.setAmount(new_step_count);
-               step.setIs_synchronized(false);
-               step.setTime(begin_day + millis_per_step * i);
-               steps_db.getStepDAO().insert(step);
-
-               //Log.v("init", "Step " + step.getTime() + " is " + step.getAmount());
-           }
-
-           for (int i = min2; i < 150; i++) {
-               StepEntity step = new StepEntity();
-               int new_step_count = last_step + r.nextInt(100 - 50) + 50;
-               last_step = new_step_count;
-               step.setAmount(new_step_count);
-               step.setIs_synchronized(false);
-               step.setTime(begin_day + millis_per_step * i);
-               steps_db.getStepDAO().insert(step);
-
-               //Log.v("init", "Step " + step.getTime() + " is " + step.getAmount());
-           }
-       }
+        // TODO remove later, after debugging
+        if (false) {
+            this.createTestData();
+        }
 
         // init user tracking
-        // TODO let user decide which tracking modes activated
+        // TODO let user decide which tracking modes should be activated
         this.updateSensors();
 
         // create work manager for uploading data
         Constraints constraints = new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build();
-        PeriodicWorkRequest uploadWorkRequest = new PeriodicWorkRequest.Builder(UploadWorker.class, 15, TimeUnit.MINUTES).setConstraints(constraints).build();
+        // TODO change interval or trigger uploadworker in motion event?
+        PeriodicWorkRequest uploadWorkRequest = new PeriodicWorkRequest.Builder(UploadWorker.class, 5, TimeUnit.MINUTES).setConstraints(constraints).build();
 
         // start work manager for uploading data
         WorkManager.getInstance(this).enqueue(uploadWorkRequest);
-    }
-
-    public Bundle getStepsOfDay() {
-        // create Bundle for data fragment
-        Gson gson = new Gson();
-
-        VisualDatabase visual_db = Room.databaseBuilder(this, VisualDatabase.class, "visualDB").allowMainThreadQueries().build();
-
-        // TODO rebuild calculation
-        LocalDateTime actual = LocalDateTime.now();
-        long begin_day = LocalDateTime.of(actual.getYear(), actual.getMonth(), actual.getDayOfMonth(), 0, 0, 0).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
-
-        LocalDate date = LocalDate.now();
-        LocalDateTime last_date = LocalDateTime.now().minusDays(1);
-
-        List<TotalStepHourly> hourly_steps_all = visual_db.getVisualDAO().getAllTotalStepsHourly();
-        List<TotalStepHourly> hourly_steps = new ArrayList<TotalStepHourly>();
-
-        // filter out steps of last day
-        for (TotalStepHourly step: hourly_steps_all) {
-            if (step.getTimestamp().isBefore(actual) && step.getTimestamp().isAfter(last_date)) {
-                hourly_steps.add(step);
-            }
-        }
-
-        Bundle bundle = new Bundle();
-        bundle.putString("steps_day", gson.toJson(hourly_steps));
-
-        return bundle;
-    }
-
-    public Bundle getHomeData() {
-        // create Bundle for data fragment
-        Gson gson = new Gson();
-
-        Bundle bundle = new Bundle();
-        bundle.putString("actual_steps", gson.toJson(null));
-
-        return bundle;
     }
 
     private void updateSensors() {
@@ -250,7 +156,7 @@ public class MainActivity extends AppCompatActivity {
         Switch sw_step = (Switch) findViewById(R.id.switch_step_tracking);
 
         // set default values
-        // TODO read them later from settings db
+        // TODO read them later from shared preferences
         sw_location.setChecked(location_tracking);
         sw_motion.setChecked(motion_tracking);
         sw_step.setChecked(step_tracking);
@@ -316,4 +222,56 @@ public class MainActivity extends AppCompatActivity {
         return NavigationUI.navigateUp(navController, mAppBarConfiguration)
                 || super.onSupportNavigateUp();
     }
+
+    private void createTestData() {
+        steps_db = Room.databaseBuilder(this, MovementDatabase.class, "mvmtDB").allowMainThreadQueries().build();
+
+        Random r = new Random();
+        int min1 = r.nextInt(50);
+        int min2 = r.nextInt(100 - min1) + min1;
+        int min3 = r.nextInt(150 - min2) + min2;
+        int step_sum = 0;
+
+        int millis_in_one_day = 1000 * 60 * 60 * 24;
+        int millis_per_step = millis_in_one_day / min3;
+        LocalDateTime actual = LocalDateTime.now();
+        Log.v("testdata", "StartInterval: " + LocalDateTime.now().minusDays(1));
+        Log.v("testdata", "EndInterval: " + LocalDateTime.now());
+        Log.v("testdata", "Min1: " + min1);
+        Log.v("testdata", "Min2: " + min2);
+        long begin_day = LocalDateTime.now().minusDays(1).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+
+        for (int i = 0; i < min1; i++) {
+            StepEntity step = new StepEntity();
+            int new_step_count = r.nextInt(150 - 50) + 50;
+            step_sum += new_step_count;
+            step.setAmount(new_step_count);
+            step.setIs_synchronized(false);
+            step.setTime(begin_day + millis_per_step * i);
+            steps_db.getStepDAO().insert(step);
+        }
+
+        for (int i = min1; i < min2; i++) {
+            StepEntity step = new StepEntity();
+            int new_step_count = r.nextInt(250 - 50) + 50;
+            step_sum += new_step_count;
+            step.setAmount(new_step_count);
+            step.setIs_synchronized(false);
+            step.setTime(begin_day + millis_per_step * i);
+            steps_db.getStepDAO().insert(step);
+        }
+
+        for (int i = min2; i < min3; i++) {
+            StepEntity step = new StepEntity();
+            int new_step_count = r.nextInt(100 - 50) + 50;
+            step_sum += new_step_count;
+            step.setAmount(new_step_count);
+            step.setIs_synchronized(false);
+            step.setTime(begin_day + millis_per_step * i);
+            steps_db.getStepDAO().insert(step);
+        }
+        Log.v("testdata", "Total number steps: " + step_sum);
+        Log.v("testdata", "Total entries: : " + min3);
+    }
+
 }

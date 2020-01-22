@@ -29,9 +29,15 @@
     <string name="user_email_test">sk.tette@web.de</string>
     <string name="step_goal_input_hint">Schrittziel eingeben</string>
     <string name="step_goal_btn">update</string>
+    <string name="room_id_input_hint">Room id eingeben</string>
+    <string name="room_id_btn">update</string>
 
     <string name="menu_home">Home</string>
     <string name="menu_movement_data">Movement data</string>
     <string name="menu_share">Share</string>
     <string name="menu_settings">Settings</string>
+
+    <!-- Shared Preferences Keys -->
+    <string name="sp_file_name">ehealth_shared_preferences</string>
+    <string name="sp_device_id_key">deviceID</string>
 </resources>

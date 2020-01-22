@@ -5,56 +5,60 @@ import android.hardware.SensorEvent;
 import android.util.Log;
 import android.widget.Toast;
 
+import org.threeten.bp.Instant;
+import org.threeten.bp.LocalDateTime;
+import org.threeten.bp.ZoneId;
+
 import java.util.Date;
+import java.util.List;
 
 public class StepsLoggerListener extends MovementLoggerListener {
-    private int daily_offset = 0;
-    private Date actual_date = new Date(System.currentTimeMillis());
 
-    public StepsLoggerListener(){
+    public StepsLoggerListener() {
         super(Sensor.TYPE_STEP_COUNTER);
     }
+
     @Override
     public void onSensorChanged(SensorEvent event) {
         try {
-            Toast.makeText(myContext,"Steps: "+event.values[0], Toast.LENGTH_LONG).show(); // For example
+            Toast.makeText(myContext, "Steps done: " + event.values[0], Toast.LENGTH_LONG).show();
         } catch (Error e) {
         }
 
         if (event.values.length > 0) {
             Log.v("tracking", "New Steps: " + event.values[0]);
 
-            StepDAO sd = db.getStepDAO();
-
+            // create new step entity
             StepEntity se = new StepEntity();
             se.setTime(event.timestamp);
 
-            // TODO check for reboot instead this
-            // check for step counter reset
+            // check the last step entity from database to remove counter offset
+            List<LastStepEntity> last_steps = db.getStepDAO().getLastStepOffset();
+            LastStepEntity last_step_offset = null;
+            int offset = 0;
 
-            // check for next day
-            // TODO implement an other check later, this wont work if month changes and days are equal
-            if (actual_date.getDay() != new Date(System.currentTimeMillis()).getDay()) {
-                // reset daily offset
-                daily_offset = 0;
-                actual_date = new Date(System.currentTimeMillis());
+            if (last_steps.size() > 0) {
+                // set the actual offset
+                offset = last_steps.get(0).getStep_offset();
+
+                // check if reboot happend
+                if ((int) event.values[0] >= offset) {
+                    // reset offset
+                    offset = 0;
+                }
+            } else {
+                // create new step offset
+                last_step_offset = new LastStepEntity();
             }
 
-            StepEntity last_steps = sd.getLastStep();
-            Log.v("tracking", "last step was " + last_steps.getAmount() + " in timestap " + last_steps.getTime());
+            // insert updated step offset
+            last_step_offset.setStep_offset((int) event.values[0]);
+            db.getStepDAO().insert(last_step_offset);
 
-            if (last_steps != null && event.values[0] < last_steps.getAmount()) {
-                // rereset value
-                daily_offset = last_steps.getAmount();
-            }
-
-            // set value
-            se.setAmount((int) event.values[0] - daily_offset);
-
-            // insert
-            sd.insert(se);
-        }
-        else {
+            // insert actual done steps into database
+            se.setAmount((int) event.values[0] - offset);
+            db.getStepDAO().insert(se);
+        } else {
             Log.v("tracking", "Event values are empty for steplogger...");
         }
     }
@@ -66,10 +70,10 @@ public class StepsLoggerListener extends MovementLoggerListener {
 
     @Override
     public void printData() {
-        StepDAO dao=db.getStepDAO();
+        StepDAO dao = db.getStepDAO();
 
         System.out.println("Steps in db:");
-        for(StepEntity s:dao.getItems()){
+        for (StepEntity s : dao.getItems()) {
             System.out.println(s);
         }
     }

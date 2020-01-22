@@ -8,8 +8,16 @@ import androidx.room.Room;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
+import org.threeten.bp.LocalDate;
+import org.threeten.bp.LocalDateTime;
+import org.threeten.bp.LocalTime;
+
+import java.util.ArrayList;
 import java.util.List;
 
+import uni.jena.swep.ehealth.data_visualisation.TotalStepDaily;
+import uni.jena.swep.ehealth.data_visualisation.TotalStepHourly;
+import uni.jena.swep.ehealth.data_visualisation.VisualDatabase;
 import uni.jena.swep.ehealth.measure_movement.LocationEntity;
 import uni.jena.swep.ehealth.measure_movement.MovementDatabase;
 import uni.jena.swep.ehealth.measure_movement.StepEntity;
@@ -28,6 +36,7 @@ public class UploadWorker extends Worker {
 
         // create movement database instance
         MovementDatabase db = Room.databaseBuilder(getApplicationContext(), MovementDatabase.class, "mvmtDB").allowMainThreadQueries().fallbackToDestructiveMigration().build();
+        VisualDatabase vdb = Room.databaseBuilder(getApplicationContext(), VisualDatabase.class, "visualDB").allowMainThreadQueries().fallbackToDestructiveMigration().build();
 
         FirebaseInterface fireinterface = new FirebaseInterface(getApplicationContext());
 
@@ -49,7 +58,7 @@ public class UploadWorker extends Worker {
             // iterate through steps and upload them
             for (StepEntity step : not_synchronized_steps) {
                 // upload steps
-                // TODO uncomment later: fireinterface.uploadSteps(step);
+                fireinterface.uploadSteps(step);
 
                 // set data as uploaded
                 step.setIs_synchronized(true);
@@ -63,11 +72,6 @@ public class UploadWorker extends Worker {
         // delete uploaded data
         db.getStepDAO().deleteMultiple(db.getStepDAO().getSynchronizedSteps(true));
         db.getLocationDAO().deleteMultiple(db.getLocationDAO().getSynchronizedLocations(true));
-
-        // update steps taken and step goal
-        fireinterface.updateDailyStepsTotalAndGoal();
-        fireinterface.updateDailySteps();
-        fireinterface.updateRoomData();
 
         // TODO catch exception for failed db access and return Result.failed()
         // Indicate whether the task finished successfully with the Result
