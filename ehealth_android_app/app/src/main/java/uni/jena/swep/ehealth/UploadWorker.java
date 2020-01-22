@@ -8,15 +8,8 @@ import androidx.room.Room;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
-import org.threeten.bp.LocalDate;
-import org.threeten.bp.LocalDateTime;
-import org.threeten.bp.LocalTime;
-
-import java.util.ArrayList;
 import java.util.List;
 
-import uni.jena.swep.ehealth.data_visualisation.TotalStepDaily;
-import uni.jena.swep.ehealth.data_visualisation.TotalStepHourly;
 import uni.jena.swep.ehealth.data_visualisation.VisualDatabase;
 import uni.jena.swep.ehealth.measure_movement.LocationEntity;
 import uni.jena.swep.ehealth.measure_movement.MovementDatabase;
