@@ -14,9 +14,9 @@ exports.addUserToDB = functions.auth.user().onCreate((user) => {
         room: null,
         position: null,
         steps_device: null,
+        steps_today_total: 0,
         daily_step_goal: 10000,
         age: null,
-        name: user.displayName,
     };
 
 
@@ -31,6 +31,22 @@ exports.deleteUserFromDB = functions.auth.user().onDelete((user) => {
         })
 });
 
+
+// Reset der daily steps
+exports.scheduledStepsReset = functions.pubsub.schedule('0 0 * * *').onRun((context) => {
+    let usersRef = db.collection('users');
+    return usersRef.get()
+        .then(snapshot => {
+            snapshot.forEach(doc => {
+                return doc.ref.set({steps_today_total: 0}, {merge: true});
+            });
+            return true;
+        })
+        .catch(err => {
+            console.log('Dokumente konnten nicht erreicht werden', err)
+        })
+
+});
 
 /*
 exports.moveTemperature = functions.firestore
@@ -71,7 +87,7 @@ exports.moveTemperature = functions.firestore
     });
 */
 
-/* Gepushte Schritte werden unter User aggregiert */
+/* Aggregiert Daten */
 exports.moveSteps = functions.firestore
     .document('/devices/{deviceId}/steps/{docId}')
     .onCreate(async (snap, context) => {
@@ -97,58 +113,105 @@ exports.moveSteps = functions.firestore
         timestamp = await newDoc.timestamp;
         timestamp = timestamp.toDate();
 
-        let time_array = splitTimestamp(timestamp);
-        /* return array mit gesplitteten Timestamp
-        day = 0, month = 1, year = 2, hours = 3*/
 
-        // Wert des neuen Push
+        // In Variablen teilen
+        const day = timestamp.getDate();
+        const month = timestamp.getMonth() + 1;
+        const year = timestamp.getFullYear();
+        const hours = timestamp.getHours();
+
+        // Value of new entry
         const additionalSteps = await newDoc.value;
 
+        // Dokumentiert für den Tag die totalen Schritte
+        let docRefTotal = db.doc('users/' + user + '/' + year + '/' + month + '/' + day + '/totalSteps');
+        await documentTheDay(docRefTotal, additionalSteps);
+
+        // TODO Das hier einstellen
+        // Schritte zu Tagesergebnis hinzufügen
+        await addToToday(timestamp, user, additionalSteps);
+
         // Referenz wohin Wert geschrieben werden soll
-        let docRef = await db.doc('users/' + user + '/' + time_array[2] + '/' + time_array[1] + '/'
-            + time_array[0] + '/' + time_array[3]);
-
-        await documentSteps(docRef, additionalSteps);
-
-        return await deleteOriginal(snap)
+        let docRef = db.doc('users/' + user + '/' + year + '/' + month + '/' + day + '/' + hours);
+        return documentTheHour(snap, docRef, additionalSteps);
 
     });
 
+// Legacy: Vergleicht ob Snapshot von heute ist und fuegt es den daily steps hinzu
+async function addToToday(docTimestamp, userId, value) {
 
+    let currentDate = new Date();
+    docTimestamp.setHours(0, 0, 0, 0);
+    currentDate.setHours(0, 0, 0, 0);
 
+    let userRef = db.doc('users/' + userId);
+    let userDoc = await userRef.get();
+    let steps = await userDoc.data().steps_today_total;
 
-// Addiert sich zur totalen Summe zusammen
-function documentSteps(docRef, value) {
+    if (docTimestamp.getTime() === currentDate.getTime()) {
+        return userRef.set({steps_today_total: steps + value}, {merge: true});
+    } else {
+        return false;
+    }
+}
 
-    return db.runTransaction(transaction => {
-        return transaction.get(docRef).then(doc => {
-            if(!doc.exists) {
-                return transaction.create(docRef, {value:value})
-            } else {
-                let newSteps = doc.data().value + value;
-                return transaction.update(docRef, {value:newSteps});
-            }
+// Addiert sich zur totalen summe zusammen
+async function documentTheDay(userRef, value) {
 
-        })
-    });
+    let steps = 0;
+
+    let userDoc = await userRef.get();
+
+    if (!userDoc) {
+
+        let doc_value = await userDoc.data().value;
+
+        if (!doc_value) {
+            steps = doc_value;
+        }
+    }
+
+    return userRef.set({value: steps + value}, {merge: true});
+
 }
 
 // Fuegt Schritte zu einzelnen Stunden
-async function deleteOriginal(snap) {
+async function documentTheHour(snap, docRef, additionalSteps) {
+    // Schritte zu User verschieben
+    // Aktuellen Wert abgreifen
+    let currentSteps = await docRef.get().then((docSnap) => {
+        return docSnap.get('value');
+    });
+
+    if (!currentSteps) {
+        currentSteps = 0;
+    }
 
     // Löscht das aktuelle Dokument aus dem devices Bereich
-    return await snap.ref.delete();
+    return snap.ref.delete().then(() => {
+        return docRef.set({value: currentSteps + additionalSteps}, {merge: true});
+    });
+
 }
 
+//Bewegen der Arduino Daten aus Realtime DB in Firestore
 
-// Timestamp in Variabel aufteilen
-function splitTimestamp(timestamp) {
+exports.moveArduinoData = functions.database.ref('/{deviceId}/{category}/{id}').onCreate(async (snapshot, context)=> {
+	const deviceId=context.params.deviceId;
+	const category=context.params.category;
+	const id=context.params.id;
+	const time=snapshot.child("time").val();
+	const value =parseFloat(snapshot.child("myData").val());
+	//console.log('testing '+context.params.category+" "+snapshot.child("time").val()+" "+snapshot.child("myData").val());
+	
+	
+    let data = {
+        [time]: value
+    };
 
-    const day = timestamp.getDate();
-    const month = timestamp.getMonth() + 1;
-    const year = timestamp.getFullYear();
-    const hours = timestamp.getHours();
 
-    return [day, month, year, hours];
-}
-
+    return db.doc('devices/' + deviceId+'/'+category+'/'+time).set(data);
+	
+	//return {yeet:'test'};
+	
+});

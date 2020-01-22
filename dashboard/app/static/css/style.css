@@ -1,0 +1,18 @@
+.hero.is-primary {
+   background-image: linear-gradient(to top, #37ecba 0%, #72afd3 100%); !important;
+}
+
+.hero.is-primary a.navbar-item:hover {
+    background-color: transparent;
+    font-weight: bolder;
+}
+
+@media screen and (max-width: 1087px){
+.hero.is-primary .navbar-menu {
+    background-color: transparent !important;
+}
+
+.navbar-menu {
+    box-shadow: none;
+}
+}

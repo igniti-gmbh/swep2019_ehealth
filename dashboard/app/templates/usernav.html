@@ -8,6 +8,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Ignite E-Health</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.7.2/css/bulma.min.css"/>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
     {% endblock %}
 
 </head>
@@ -18,14 +20,26 @@
     <div class="hero-head">
         <nav class="navbar">
             <div class="container">
+                <div class="navbar-brand">
 
-                <div id="navbarMenuHeroA" class="navbar-menu">
+                    <a role="button" class="navbar-burger burger" data-target="navbarMainNav" aria-label="menu"
+                       aria-expanded="false">
+                        <span aria-hidden="true"></span>
+                        <span aria-hidden="true"></span>
+                        <span aria-hidden="true"></span>
+                    </a>
+                </div>
+
+                <div id="navbarMainNav" class="navbar-menu">
                     <div class="navbar-end">
                         <a href="{{ url_for('server_bp.index') }}" class="navbar-item">
                             Home
                         </a>
                         <a href="{{ url_for('server_bp.profile') }}" class="navbar-item">
                             Profil
+                        </a>
+                        <a href="{{ url_for('server_bp.settings') }}" class="navbar-item">
+                            Einstellungen
                         </a>
                         <a href="{{ url_for('server_bp.dashboard') }}" class="navbar-item">
                             Dashboard

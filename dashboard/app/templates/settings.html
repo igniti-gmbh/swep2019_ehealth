@@ -1,0 +1,42 @@
+{% extends navigation %}
+
+{% block content %}
+    <!--suppress ALL -->
+    <div class="column is-4 is-offset-4">
+        <h3 class="title">Einstellungen</h3>
+        <div class="box">
+            {% with messages = get_flashed_messages() %}
+                {% if messages %}
+                    <div class="notification is-danger">
+                        {{ messages[0] }}
+                        </a>.
+                    </div>
+                {% endif %}
+            {% endwith %}
+            <form method="POST" action="/settings">
+                <div class="field">
+                    <div class="control">
+                        <input class="input is-large" type="text" name="name" placeholder='Name' autofocus="">
+                    </div>
+                </div>
+                <div class="field">
+                    <div class="control">
+                        <input autofocus="" class="input is-large" name="room" placeholder='Raum' type="number">
+                    </div>
+                </div>
+                <div class="field">
+                    <div class="control">
+                        <input class="input is-large" name="stepgoal" placeholder='Schrittziel' type="number">
+                    </div>
+                </div>
+                <div class="field">
+                    <div class="control">
+                        <input class="input is-large" name="position" placeholder='Position' type="text">
+                    </div>
+                </div>
+
+                <button class="button is-block is-info is-large is-fullwidth">Ändern</button>
+            </form>
+        </div>
+    </div>
+{% endblock %}

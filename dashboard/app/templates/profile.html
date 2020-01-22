@@ -1,6 +1,10 @@
 {% extends navigation %}
 {% block content %}
-<h1 class="title">
+<h3 class="title">
     Willkommen {{ name }}
-</h1>
+</h3>
+<p>Dein Raum: {{room}}</p>
+<p>Dein Schrittziel: {{stepgoal}}</p>
+<p>Deine Position: {{position}}</p>
+<b><a href="settings">Einstellungen ändern</a></b>
 {% endblock %}
