@@ -44,7 +44,7 @@
 //#define NAME "device1"
 
 
-char deviceName[64]="unnnamed";
+char deviceName[64] = "unnnamed";
 
 
 //firebase objekt
@@ -134,11 +134,15 @@ void loop() {
   //sendData("test",testNum+.5,timeClient.getEpochTime());
 
   //schreibe die gemessenen daten
-  sendData("temperature", bme.temperature, timeClient.getEpochTime());
-  sendData("pressure", bme.pressure, timeClient.getEpochTime());
-  sendData("humidity", bme.humidity, timeClient.getEpochTime());
-  sendData("gas", 1.0 - double(bme.gas_resistance / 100000.0), timeClient.getEpochTime());
+  FirebaseJson json;
+
+
+  appendData("temperature", bme.temperature, &json);
+  appendData("pressure", bme.pressure, &json);
+  appendData("humidity", bme.humidity, &json);
+  appendData("gas", 1.0 - double(bme.gas_resistance / 100000.0), &json);
   Serial.println(bme.gas_resistance);
+  sendData(&json, timeClient.getEpochTime());
   //warte bis zum nächsten durchlauf
   //delay(600000);
   readLine(600000);
@@ -149,18 +153,16 @@ void loop() {
 //category, spalte unter welcher abgespeichert wird
 //data, der datenpnukt
 //time, zeit der aufnahme
-void sendData(char* category, double data, int time) {
 
-  FirebaseJson json;
+void appendData(char* category, double data, FirebaseJson* json) {
+
 
   String dstr(data);
 
-  json.set("time", time);
-  json.set("myData", dstr);
-
-  char path[64];
-  sprintf(path, "/%s/%s", deviceName, category);
-  if (Firebase.pushJSON(firebaseData, path, json)) {
+  //json.set("time", time);
+  json->set(category, dstr);
+  Serial.println(dstr);
+  /*if (Firebase.pushJSON(firebaseData, path, json)) {
 
     Serial.println(firebaseData.dataPath());
 
@@ -168,10 +170,28 @@ void sendData(char* category, double data, int time) {
 
     Serial.println(firebaseData.dataPath() + "/" + firebaseData.pushName());
     Serial.println(dstr);
+    } else {
+    Serial.println(firebaseData.errorReason());
+    }*/
+}
+
+void sendData(  FirebaseJson* json,int time) {
+
+  char path[64];
+  json->set("time",time);
+  sprintf(path, "/%s", deviceName);
+  
+  if (Firebase.pushJSON(firebaseData, path, *json)) {
+
+    Serial.println(firebaseData.dataPath());
+
+    Serial.println(firebaseData.pushName());
+
+    Serial.println(firebaseData.dataPath() + "/" + firebaseData.pushName());
   } else {
     Serial.println(firebaseData.errorReason());
   }
-}
+};
 
 
 void loadPass(char* pass) {
