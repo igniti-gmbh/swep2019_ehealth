@@ -1,12 +1,15 @@
 package uni.jena.swep.ehealth;
 
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.room.Room;
 
 import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.Timestamp;
 import com.google.firebase.auth.FirebaseAuth;
@@ -21,7 +24,6 @@ import com.jakewharton.threetenabp.AndroidThreeTen;
 import org.threeten.bp.LocalDate;
 import org.threeten.bp.LocalDateTime;
 import org.threeten.bp.LocalTime;
-import org.threeten.bp.ZoneId;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -31,7 +33,6 @@ import java.util.Map;
 
 import uni.jena.swep.ehealth.data_visualisation.RoomData;
 import uni.jena.swep.ehealth.data_visualisation.StepGoal;
-import uni.jena.swep.ehealth.data_visualisation.TotalStepDaily;
 import uni.jena.swep.ehealth.data_visualisation.TotalStepHourly;
 import uni.jena.swep.ehealth.data_visualisation.VisualDatabase;
 import uni.jena.swep.ehealth.measure_movement.LocationEntity;
@@ -42,10 +43,13 @@ public class FirebaseInterface {
     private VisualDatabase db;
     private boolean is_logged_in = false;
     private FirebaseUser user = null;
+    private Context app_context = null;
 
     // TODO check for logged out while app running
 
     public FirebaseInterface(Context app_context) {
+        this.app_context = app_context;
+
         // init time
         AndroidThreeTen.init(app_context);
 
@@ -75,8 +79,7 @@ public class FirebaseInterface {
     public String getUserEmail() {
         if (this.is_logged_in) {
             return this.user.getEmail();
-        }
-        else {
+        } else {
             return "";
         }
     }
@@ -84,13 +87,12 @@ public class FirebaseInterface {
     public String getUserName() {
         if (this.is_logged_in) {
             return this.user.getDisplayName();
-        }
-        else {
+        } else {
             return "";
         }
     }
 
-    public void updateDailyStepsTotalAndGoal() {
+    public void updateDailyStepGoal() {
         // check if user is logged in
         if (this.is_logged_in) {
             // get actual date
@@ -105,6 +107,7 @@ public class FirebaseInterface {
 
             // get daily steps
             // TODO use uid instead of email
+            /*
             firestore.collection("users").whereEqualTo("email", this.user.getEmail()).get().addOnCompleteListener(new OnCompleteListener<QuerySnapshot>() {
                 @Override
                 public void onComplete(@NonNull Task<QuerySnapshot> task) {
@@ -147,6 +150,7 @@ public class FirebaseInterface {
                     }
                 }
             });
+            */
 
             // get step goal
             // TODO use uid instead of email
@@ -162,8 +166,8 @@ public class FirebaseInterface {
                                         @Override
                                         public void onComplete(@NonNull Task<DocumentSnapshot> task) {
                                             // get step goal value from firebase
-                                            if (task.getResult().getDouble("daily_step_goal") != null) {
-                                                double daily_step_goal = task.getResult().getDouble("daily_step_goal");
+                                            if (task.getResult().getDouble("stepgoal") != null) {
+                                                double daily_step_goal = task.getResult().getDouble("stepgoal");
 
                                                 // get value from local database
                                                 List<StepGoal> step_goals = db.getVisualDAO().getAllStepGoals();
@@ -221,8 +225,7 @@ public class FirebaseInterface {
                                                     if (room_data.size() > 0) {
                                                         rd = room_data.get(0);
                                                         rd.setGas(task.getResult().getDouble("value").intValue());
-                                                    }
-                                                    else {
+                                                    } else {
                                                         rd = new RoomData();
                                                         rd.setGas(task.getResult().getDouble("value").intValue());
                                                     }
@@ -243,8 +246,7 @@ public class FirebaseInterface {
                                                     if (room_data.size() > 0) {
                                                         rd = room_data.get(0);
                                                         rd.setPressure(task.getResult().getDouble("value").intValue());
-                                                    }
-                                                    else {
+                                                    } else {
                                                         rd = new RoomData();
                                                         rd.setPressure(task.getResult().getDouble("value").intValue());
                                                     }
@@ -265,8 +267,7 @@ public class FirebaseInterface {
                                                     if (room_data.size() > 0) {
                                                         rd = room_data.get(0);
                                                         rd.setTemp(task.getResult().getDouble("value").intValue());
-                                                    }
-                                                    else {
+                                                    } else {
                                                         rd = new RoomData();
                                                         rd.setTemp(task.getResult().getDouble("value").intValue());
                                                     }
@@ -287,8 +288,7 @@ public class FirebaseInterface {
                                                     if (room_data.size() > 0) {
                                                         rd = room_data.get(0);
                                                         rd.setHumidity(task.getResult().getDouble("value").intValue());
-                                                    }
-                                                    else {
+                                                    } else {
                                                         rd = new RoomData();
                                                         rd.setHumidity(task.getResult().getDouble("value").intValue());
                                                     }
@@ -358,7 +358,7 @@ public class FirebaseInterface {
                                                     int step_value = task.getResult().getDouble("value").intValue();
 
                                                     // check if value is in database actual
-                                                    // TODO use better check, are dates compareable (all have minutes&seconds equal zero)?
+                                                    // TODO use better check, are dates comparable (all have minutes&seconds equal zero)?
                                                     boolean value_present = false;
                                                     for (int i = 0; i < hourly_steps.size() && value_present == false; i++) {
                                                         if (hourly_steps.get(i).getTimestamp().isEqual(time_value)) {
@@ -396,6 +396,32 @@ public class FirebaseInterface {
         }
     }
 
+    public void uploadRoomId(final int room_id) {
+        // check if user is logged in
+        if (this.is_logged_in) {
+            // init firestore
+            final FirebaseFirestore firestore = FirebaseFirestore.getInstance();
+
+            firestore.collection("rooms").document(String.valueOf(room_id)).get().addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
+                @Override
+                public void onComplete(@NonNull Task<DocumentSnapshot> task) {
+                    if (task.isSuccessful()) {
+                        DocumentSnapshot document = task.getResult();
+                        if (document.exists()) {
+                            // update room id in user if room exists
+                            firestore.collection("users").document(user.getUid()).update("room", room_id);
+                            Log.d("firebase", "Uploaded RoomID: " + room_id);
+                        } else {
+                            Log.d("firebase", "Room does not exist!");
+                        }
+                    } else {
+                        Log.d("firebase", "Error getting documents: ", task.getException());
+                    }
+                }
+            });
+        }
+    }
+
     public void uploadStepGoal(final int daily_step_goal) {
         // check if user is logged in
         if (this.is_logged_in) {
@@ -409,7 +435,7 @@ public class FirebaseInterface {
                     if (task.isSuccessful()) {
                         for (QueryDocumentSnapshot document : task.getResult()) {
                             // update value in firebase
-                            firestore.collection("users").document(document.getId()).update("daily_step_goal", daily_step_goal);
+                            firestore.collection("users").document(document.getId()).update("stepgoal", daily_step_goal);
                             Log.d("firebase", "Uploaded StepGoal: " + daily_step_goal);
                         }
                     } else {
@@ -419,7 +445,35 @@ public class FirebaseInterface {
             });
 
             // update values in database
-            this.updateDailyStepsTotalAndGoal();
+            this.updateDailyStepGoal();
+        }
+    }
+
+    public void createDeviceDocument() {
+        final SharedPreferences sp = this.app_context.getSharedPreferences(this.app_context.getString(R.string.sp_file_name), Context.MODE_PRIVATE);
+
+        if (this.is_logged_in) {
+            final FirebaseFirestore firestore = FirebaseFirestore.getInstance();
+
+            final Map<String, Object> device_doc = new HashMap<>();
+            device_doc.put("userId", this.user.getUid());
+
+            firestore.collection("devices").add(device_doc).addOnSuccessListener(new OnSuccessListener<DocumentReference>() {
+                @Override
+                public void onSuccess(DocumentReference documentReference) {
+                    Log.d("firebase", "Created Devicedocument with ID: " + documentReference.getId());
+
+                    // save device id in shared preferences
+                    SharedPreferences sp = app_context.getSharedPreferences(app_context.getString(R.string.sp_file_name), Context.MODE_PRIVATE);
+                    SharedPreferences.Editor edit = sp.edit();
+                    edit.putString(app_context.getString(R.string.sp_device_id_key), documentReference.getId());
+                }
+            }).addOnFailureListener(new OnFailureListener() {
+                @Override
+                public void onFailure(@NonNull Exception e) {
+                    Log.w("firebase", "Error adding device document", e);
+                }
+            });
         }
     }
 

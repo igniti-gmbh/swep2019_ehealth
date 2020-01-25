@@ -13,6 +13,8 @@ import androidx.room.Update;
 public interface StepDAO {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     public void insert(StepEntity... items);
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    public void insert(LastStepEntity item);
     @Update
     public void update(StepEntity... items);
     @Delete
@@ -28,4 +30,6 @@ public interface StepDAO {
     public List<StepEntity> getStepsFromTimeInterval(long min_time, long max_time);
     @Query("SELECT * FROM steps WHERE time=( SELECT MAX(time) from steps)")
     public StepEntity getLastStep();
+    @Query("SELECT * FROM laststeps")
+    public List<LastStepEntity> getLastStepOffset();
 }

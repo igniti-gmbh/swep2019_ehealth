@@ -27,14 +27,16 @@ public class SettingsFragment extends Fragment {
         View root = inflater.inflate(R.layout.fragment_settings, container, false);
 
         Button reset_btn = root.findViewById(R.id.settings_reset_pass_btn);
-        Button update_btn = root.findViewById(R.id.btn_step_goal);
-        final EditText input_field = root.findViewById(R.id.step_goal_input);
+        Button update_step_goal_btn = root.findViewById(R.id.btn_step_goal);
+        Button update_room_id_btn = root.findViewById(R.id.btn_room_id);
+        final EditText input_field_room_id = root.findViewById(R.id.room_id_input);
+        final EditText input_field_step_goal = root.findViewById(R.id.step_goal_input);
 
-        update_btn.setOnClickListener(new View.OnClickListener(){
+        update_step_goal_btn.setOnClickListener(new View.OnClickListener(){
             @Override
             public void onClick(View v) {
                 // get value from input field
-                int new_value = Integer.parseInt(input_field.getText().toString());
+                int new_value = Integer.parseInt(input_field_step_goal.getText().toString());
 
                 // get firebase
                 FirebaseInterface fi = new FirebaseInterface(v.getContext());
@@ -43,7 +45,32 @@ public class SettingsFragment extends Fragment {
                 fi.uploadStepGoal(new_value);
 
                 // clear step goal input field
-                input_field.setText("");
+                input_field_step_goal.setText("");
+
+                // close keyboard
+                if (getActivity() != null) {
+                    InputMethodManager inputManager = (InputMethodManager) getActivity().getSystemService(Context.INPUT_METHOD_SERVICE);
+
+                    inputManager.hideSoftInputFromWindow(getActivity().getCurrentFocus().getWindowToken(),
+                            InputMethodManager.HIDE_NOT_ALWAYS);
+                }
+            }
+        });
+
+        update_room_id_btn.setOnClickListener(new View.OnClickListener(){
+            @Override
+            public void onClick(View v) {
+                // get value from input field
+                int new_value = Integer.parseInt(input_field_room_id.getText().toString());
+
+                // get firebase
+                FirebaseInterface fi = new FirebaseInterface(v.getContext());
+
+                // update step goal value
+                fi.uploadRoomId(new_value);
+
+                // clear step goal input field
+                input_field_room_id.setText("");
 
                 // close keyboard
                 if (getActivity() != null) {

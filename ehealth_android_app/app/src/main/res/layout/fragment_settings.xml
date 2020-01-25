@@ -36,6 +36,30 @@
                 android:text="@string/step_goal_btn" />
         </LinearLayout>
 
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="horizontal"
+            android:layout_marginTop="20dp"
+            android:layout_marginBottom="10dp">
+
+            <EditText
+                android:id="@+id/room_id_input"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:ems="10"
+                android:hint="@string/room_id_input_hint"
+                android:inputType="number" />
+
+            <Button
+                android:id="@+id/btn_room_id"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/room_id_btn" />
+        </LinearLayout>
+
         <Button
             android:id="@+id/settings_reset_pass_btn"
             android:layout_width="match_parent"
