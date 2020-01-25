@@ -147,7 +147,7 @@ loggedin = html.Div(
         html.Div(
             [dcc.DatePickerRange(
                 id='date-picker-range',
-                start_date=str(datetime.datetime.now()),
+                start_date=str(datetime.datetime.now()-datetime.timedelta(days=7)),
                 end_date_placeholder_text='Select a date!',
                 display_format='DD.MM.YYYY'
             ), dcc.Graph(id="days_graph",

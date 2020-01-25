@@ -5,6 +5,9 @@ const admin = require('firebase-admin');
 admin.initializeApp();
 
 let db = admin.firestore();
+let realtime = admin.database();
+
+
 
 /* User wird in Firebase eingefügt */
 exports.addUserToDB = functions.auth.user().onCreate((user) => {
@@ -13,10 +16,9 @@ exports.addUserToDB = functions.auth.user().onCreate((user) => {
         email: user.email,
         room: null,
         position: null,
-        steps_device: null,
-        steps_today_total: 0,
-        daily_step_goal: 10000,
+        stepgoal: 10000,
         age: null,
+        name: user.displayName,
     };
 
 
@@ -32,62 +34,68 @@ exports.deleteUserFromDB = functions.auth.user().onDelete((user) => {
 });
 
 
-// Reset der daily steps
-exports.scheduledStepsReset = functions.pubsub.schedule('0 0 * * *').onRun((context) => {
-    let usersRef = db.collection('users');
-    return usersRef.get()
-        .then(snapshot => {
-            snapshot.forEach(doc => {
-                return doc.ref.set({steps_today_total: 0}, {merge: true});
-            });
-            return true;
-        })
-        .catch(err => {
-            console.log('Dokumente konnten nicht erreicht werden', err)
-        })
+exports.moveArduinoData = functions.database.ref('/{deviceId}/{document}')
+    .onCreate(async (snap, context)=> {
 
-});
+    const deviceId = context.params.deviceId;
 
-/*
-exports.moveTemperature = functions.firestore
-    .document('devices/{deviceId}/temperature/{docId}')
-    .onCreate((snap, context) => {
+    // Room ziehen
+    let roomRef = await realtime.ref('devices/'+deviceId).child('room');
+    let room = await roomRef.val();
 
-        //RoomId holen
+    // Wenn kein room existiert, dann Abbruch
 
-        const deviceId = context.params.deviceId;
-        const room = db.doc('devices/' + deviceId).get()
-            .then(documentSnapshot => {
-                return documentSnapshot.get('roomId');
-            });
+    if(!room){
+        console.log('Raum existiert nicht');
+        return null
+    }
 
-        // Checkt on roomId existiert
-        if (!room.exists) {
-            return;
-        }
+    // Werte ziehen aus Realtime Database
+    const timestamp = snap.child("time").val();
+    const gas = snap.child("gas").val();
+    const humidity = snap.child("humidity").val();
+    const pressure = snap.child("pressure").val();
+    const temperature = snap.child("temperature").val();
 
-        // Erstelltes Document kopieren
-        const newDoc = snap.data();
+    const time_array = await splitTimestamp(timestamp);
+    // Referenz wohin Wert geschrieben werden soll
+    let docRef = db.doc('rooms/' + room + '/' + time_array[2] + '/' + time_array[1] + '/'
+            + time_array[0] + '/' + time_array[3]);
 
+    //Batch Objekt erstellen
+    let batch = db.batch();
 
-        // In Javascript Timestamp verwandeln
-        const timestamp = newDoc.timestamp.toDate();
-        // In Variablen teilen
-        const day = timestamp.getDate();
-        const month = timestamp.getMonth();
-        const year = timestamp.getFullYear();
-        const hours = timestamp.getHours();
-        // Value Variable
-        const value = newDoc.value;
+    // Vergleichen ob aktueller Wert in Übersicht geschrieben werden soll
+    const currentTimestamp = await docRef.get().then(doc => { return doc.get('timestamp')});
 
-        // TODO Wie speichern wir die Daten in den Räumen ab?
-        // Referenz wohin Wert geschrieben werden soll
-        let docRef = db.doc('rooms/' + room + '/' + year + '/' + month + '/' + day + '/' + hours);
+    if (!currentTimestamp || currentTimestamp < timestamp){
+    batch.set(docRef, {
+        'gas': gas,
+    'humidity': humidity,
+    'pressure': pressure,
+    'temperature': temperature,
+    'timestamp': timestamp})
+    }
+
+    // Batch schreiben und commiten
+    batch.add(docRef.collection('gas'), {'timestamp':timestamp,
+    'gas': gas});
+    batch.add(docRef.collection('humidity'), {'timestamp':timestamp,
+    'humidity': humidity});
+    batch.add(docRef.collection('pressure'), {'timestamp':timestamp,
+    'pressure': pressure});
+    batch.add(docRef.collection('temperature'), {'timestamp':timestamp,
+    'temperature': temperature});
+
+    await batch.commit();
+
+    // Alten Wert in der Datenbank löschen und Funktion beenden
+    return snap.ref.remove();
 
     });
-*/
 
-/* Aggregiert Daten */
+
+/* Gepushte Schritte werden unter User aggregiert */
 exports.moveSteps = functions.firestore
     .document('/devices/{deviceId}/steps/{docId}')
     .onCreate(async (snap, context) => {
@@ -109,109 +117,59 @@ exports.moveSteps = functions.firestore
         const newDoc = await snap.data();
 
         // In Javascript Timestamp verwandeln
-        let timestamp;
-        timestamp = await newDoc.timestamp;
-        timestamp = timestamp.toDate();
+        let timestamp = await newDoc.timestamp;
+        const time_array = await splitTimestamp(timestamp);
+        // Referenz wohin Wert geschrieben werden soll
+        let docRef = db.doc('users/' + user + '/' + time_array[2] + '/' + time_array[1] + '/'
+            + time_array[0] + '/' + time_array[3]);
 
-
-        // In Variablen teilen
-        const day = timestamp.getDate();
-        const month = timestamp.getMonth() + 1;
-        const year = timestamp.getFullYear();
-        const hours = timestamp.getHours();
-
-        // Value of new entry
+        // Wert des neuen Push
         const additionalSteps = await newDoc.value;
 
-        // Dokumentiert für den Tag die totalen Schritte
-        let docRefTotal = db.doc('users/' + user + '/' + year + '/' + month + '/' + day + '/totalSteps');
-        await documentTheDay(docRefTotal, additionalSteps);
+        await documentSteps(docRef, additionalSteps);
 
-        // TODO Das hier einstellen
-        // Schritte zu Tagesergebnis hinzufügen
-        await addToToday(timestamp, user, additionalSteps);
-
-        // Referenz wohin Wert geschrieben werden soll
-        let docRef = db.doc('users/' + user + '/' + year + '/' + month + '/' + day + '/' + hours);
-        return documentTheHour(snap, docRef, additionalSteps);
+        return await deleteOriginal(snap)
 
     });
 
-// Legacy: Vergleicht ob Snapshot von heute ist und fuegt es den daily steps hinzu
-async function addToToday(docTimestamp, userId, value) {
+// Addiert sich zur totalen Summe zusammen
+function documentSteps(docRef, value) {
 
-    let currentDate = new Date();
-    docTimestamp.setHours(0, 0, 0, 0);
-    currentDate.setHours(0, 0, 0, 0);
+    return db.runTransaction(transaction => {
+        return transaction.get(docRef).then(doc => {
+            if(!doc.exists) {
+                return transaction.create(docRef, {value:value})
+            } else {
+                let newSteps = doc.data().value + value;
+                return transaction.update(docRef, {value:newSteps});
+            }
 
-    let userRef = db.doc('users/' + userId);
-    let userDoc = await userRef.get();
-    let steps = await userDoc.data().steps_today_total;
-
-    if (docTimestamp.getTime() === currentDate.getTime()) {
-        return userRef.set({steps_today_total: steps + value}, {merge: true});
-    } else {
-        return false;
-    }
-}
-
-// Addiert sich zur totalen summe zusammen
-async function documentTheDay(userRef, value) {
-
-    let steps = 0;
-
-    let userDoc = await userRef.get();
-
-    if (!userDoc) {
-
-        let doc_value = await userDoc.data().value;
-
-        if (!doc_value) {
-            steps = doc_value;
-        }
-    }
-
-    return userRef.set({value: steps + value}, {merge: true});
-
+        })
+    });
 }
 
 // Fuegt Schritte zu einzelnen Stunden
-async function documentTheHour(snap, docRef, additionalSteps) {
-    // Schritte zu User verschieben
-    // Aktuellen Wert abgreifen
-    let currentSteps = await docRef.get().then((docSnap) => {
-        return docSnap.get('value');
-    });
-
-    if (!currentSteps) {
-        currentSteps = 0;
-    }
+async function deleteOriginal(snap) {
 
     // Löscht das aktuelle Dokument aus dem devices Bereich
-    return snap.ref.delete().then(() => {
-        return docRef.set({value: currentSteps + additionalSteps}, {merge: true});
-    });
-
+    return await snap.ref.delete();
 }
 
-//Bewegen der Arduino Daten aus Realtime DB in Firestore
 
-exports.moveArduinoData = functions.database.ref('/{deviceId}/{category}/{id}').onCreate(async (snapshot, context)=> {
-	const deviceId=context.params.deviceId;
-	const category=context.params.category;
-	const id=context.params.id;
-	const time=snapshot.child("time").val();
-	const value =parseFloat(snapshot.child("myData").val());
-	//console.log('testing '+context.params.category+" "+snapshot.child("time").val()+" "+snapshot.child("myData").val());
-	
-	
-    let data = {
-        [time]: value
-    };
+// Timestamp in Variabel aufteilen
+function splitTimestamp(timestamp) {
+
+    timestamp = timestamp.toDate();
 
 
-    return db.doc('devices/' + deviceId+'/'+category+'/'+time).set(data);
-	
-	//return {yeet:'test'};
-	
-});
+    const day = timestamp.getDate();
+    const month = timestamp.getMonth() + 1;
+    const year = timestamp.getFullYear();
+    const hours = timestamp.getHours();
+
+    return [day, month, year, hours];
+}
+
+
+
+

@@ -1,13 +1,13 @@
 from dash import dash
 from flask import Flask
 import os
-from config import BaseConfig
+import config
 from .helper_functions import has_cookie_access
 
 
 def create_app():
     server = Flask(__name__)
-    server.config.from_object(BaseConfig)
+    server.config.from_object(config.ProductionConfig)
 
     register_blueprints(server)
     register_dashapps(server)

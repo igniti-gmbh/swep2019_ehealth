@@ -5,6 +5,7 @@ import pandas as pd
 import plotly.graph_objs as go
 from dash.dependencies import Input, Output
 from flask import session
+import functools
 
 from .callback_functions import has_cookie_access
 from ..python_firebase.firestore_connect import store
@@ -54,6 +55,7 @@ def register_callbacks(dashapp):
     @dashapp.callback(
         Output("step_goal", "children"),
         [Input('intermediate-value', 'children')])
+    @functools.lru_cache(maxsize=32)
     def reload_steps_goal(json_data):
         data = json.loads(json_data)
         total_steps = data['totalSteps']
@@ -94,6 +96,7 @@ def register_callbacks(dashapp):
     @dashapp.callback(
         Output("room", "children"),
         [Input('intermediate-value', 'children')])
+    @functools.lru_cache(maxsize=32)
     def show_room(json_data):
         data = json.loads(json_data)
         room = data['accountInfos']['room']
@@ -106,6 +109,7 @@ def register_callbacks(dashapp):
     @dashapp.callback(
         Output("age", "children"),
         [Input('intermediate-value', 'children')])
+    @functools.lru_cache(maxsize=32)
     def show_age(json_data):
         data = json.loads(json_data)
         age = data['accountInfos']['age']
@@ -118,6 +122,7 @@ def register_callbacks(dashapp):
     @dashapp.callback(
         Output("stepsToday", "children"),
         [Input('intermediate-value', 'children')])
+    @functools.lru_cache(maxsize=32)
     def reload_steps_today(json_data):
         data = json.loads(json_data)
 
@@ -126,6 +131,7 @@ def register_callbacks(dashapp):
     @dashapp.callback(
         Output('hours_graph', "figure"),
         [Input('intermediate-value', 'children')])
+    @functools.lru_cache(maxsize=32)
     def show_graph(json_data):
 
         data = json.loads(json_data)
@@ -166,7 +172,6 @@ def register_callbacks(dashapp):
         if end_date is None:
             fig = go.Figure(layout=layout)
             return fig
-            raise dash.exceptions.PreventUpdate
 
         start_date = datetime.datetime.strptime(start_date.split(' ')[0], '%Y-%m-%d')
         end_date = datetime.datetime.strptime(end_date.split(' ')[0], '%Y-%m-%d')
@@ -193,7 +198,7 @@ def register_callbacks(dashapp):
         fig = go.Figure(data=data, layout=layout)
         return fig
 
-
+@functools.lru_cache(maxsize=3)
 def getValuesFromFirebase(date):
     range_start = 23
     range_end = -1
@@ -226,7 +231,6 @@ def getValuesFromFirebase(date):
 
     return df
 
-
 def dfTotal(df):
     total = 0
 
@@ -235,7 +239,7 @@ def dfTotal(df):
 
     return total
 
-
+@functools.lru_cache(maxsize=32)
 def getAccInfos():
     json_file = {}
 
