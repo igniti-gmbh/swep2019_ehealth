@@ -8,7 +8,6 @@ let db = admin.firestore();
 let realtime = admin.database();
 
 
-
 /* User wird in Firebase eingefügt */
 exports.addUserToDB = functions.auth.user().onCreate((user) => {
 
@@ -35,62 +34,88 @@ exports.deleteUserFromDB = functions.auth.user().onDelete((user) => {
 
 
 exports.moveArduinoData = functions.database.ref('/{deviceId}/{document}')
-    .onCreate(async (snap, context)=> {
+    .onCreate(async (snap, context) => {
 
-    const deviceId = context.params.deviceId;
+        const deviceId = context.params.deviceId;
 
-    // Room ziehen
-    let roomRef = await realtime.ref('devices/'+deviceId).child('room');
-    let room = await roomRef.val();
+        // Room ziehen
 
-    // Wenn kein room existiert, dann Abbruch
+        let roomRef = realtime.ref('/' + deviceId);
+        let room;
+        await roomRef.once('value', (snap) => {
+            room = snap.child('roomID').val();
+        });
 
-    if(!room){
-        console.log('Raum existiert nicht');
-        return null
-    }
+        // Wenn kein room existiert, dann Abbruch
 
-    // Werte ziehen aus Realtime Database
-    const timestamp = snap.child("time").val();
-    const gas = snap.child("gas").val();
-    const humidity = snap.child("humidity").val();
-    const pressure = snap.child("pressure").val();
-    const temperature = snap.child("temperature").val();
+        if (!room || typeof room !== 'number') {
+            console.log('Raum existiert nicht');
+            return null
+        }
 
-    const time_array = await splitTimestamp(timestamp);
-    // Referenz wohin Wert geschrieben werden soll
-    let docRef = db.doc('rooms/' + room + '/' + time_array[2] + '/' + time_array[1] + '/'
+
+        // Werte ziehen aus Realtime Database
+        const time = snap.child("time").val();
+        let timestamp = new Date(time * 1000);
+        const gas = parseFloat(snap.child("gas").val());
+        const humidity = parseFloat(snap.child("humidity").val());
+        const pressure = parseFloat(snap.child("pressure").val());
+        const temperature = parseFloat(snap.child("temperature").val());
+
+
+        // Anpassen, damit auf dem Google Server das timestamp korrekt gelesen wird
+        let offsetChange = 60 - timestamp.getTimezoneOffset();
+        let newTimestamp = new Date(timestamp.getTime());
+        await newTimestamp.setMinutes(timestamp.getMinutes() + offsetChange);
+        const time_array = await splitTimestamp(newTimestamp);
+
+        console.log(time_array);
+
+        // Referenz wohin Wert geschrieben werden soll
+        let docRef = await db.doc('rooms/' + room + '/' + time_array[2] + '/' + time_array[1] + '/'
             + time_array[0] + '/' + time_array[3]);
 
-    //Batch Objekt erstellen
-    let batch = db.batch();
+        //Batch Objekt erstellen
+        let batch = await db.batch();
 
-    // Vergleichen ob aktueller Wert in Übersicht geschrieben werden soll
-    const currentTimestamp = await docRef.get().then(doc => { return doc.get('timestamp')});
+        // Vergleichen ob aktueller Wert in Übersicht geschrieben werden soll
+        const currentTimestamp = await docRef.get().then(doc => {
+            return doc.get('timestamp')
+        });
 
-    if (!currentTimestamp || currentTimestamp < timestamp){
-    batch.set(docRef, {
-        'gas': gas,
-    'humidity': humidity,
-    'pressure': pressure,
-    'temperature': temperature,
-    'timestamp': timestamp})
-    }
 
-    // Batch schreiben und commiten
-    batch.add(docRef.collection('gas'), {'timestamp':timestamp,
-    'gas': gas});
-    batch.add(docRef.collection('humidity'), {'timestamp':timestamp,
-    'humidity': humidity});
-    batch.add(docRef.collection('pressure'), {'timestamp':timestamp,
-    'pressure': pressure});
-    batch.add(docRef.collection('temperature'), {'timestamp':timestamp,
-    'temperature': temperature});
+        if (!currentTimestamp || currentTimestamp.getTime() < timestamp.getTime()) {
+            batch.set(docRef, {
+                'gas': gas,
+                'humidity': humidity,
+                'pressure': pressure,
+                'temperature': temperature,
+                'timestamp': timestamp
+            })
+        }
 
-    await batch.commit();
+        // Batch schreiben und commiten
+        batch.set(docRef.collection('gas').doc(time.toString()), {
+            'timestamp': timestamp,
+            'gas': gas
+        });
+        batch.set(docRef.collection('humidity').doc(time.toString()), {
+            'timestamp': timestamp,
+            'humidity': humidity
+        });
+        batch.set(docRef.collection('pressure').doc(time.toString()), {
+            'timestamp': timestamp,
+            'pressure': pressure
+        });
+        batch.set(docRef.collection('temperature').doc(time.toString()), {
+            'timestamp': timestamp,
+            'temperature': temperature
+        });
 
-    // Alten Wert in der Datenbank löschen und Funktion beenden
-    return snap.ref.remove();
+        await batch.commit();
+
+        // Alten Wert in der Datenbank löschen und Funktion beenden
+        return snap.ref.remove();
 
     });
 
@@ -116,8 +141,9 @@ exports.moveSteps = functions.firestore
         // Erstelltes Document kopieren
         const newDoc = await snap.data();
 
-        // In Javascript Timestamp verwandeln
+        // Firestore Timestamp in  Javascript Timestamp verwandeln
         let timestamp = await newDoc.timestamp;
+        timestamp = timestamp.toDate();
         const time_array = await splitTimestamp(timestamp);
         // Referenz wohin Wert geschrieben werden soll
         let docRef = db.doc('users/' + user + '/' + time_array[2] + '/' + time_array[1] + '/'
@@ -137,11 +163,11 @@ function documentSteps(docRef, value) {
 
     return db.runTransaction(transaction => {
         return transaction.get(docRef).then(doc => {
-            if(!doc.exists) {
-                return transaction.create(docRef, {value:value})
+            if (!doc.exists) {
+                return transaction.create(docRef, {value: value})
             } else {
                 let newSteps = doc.data().value + value;
-                return transaction.update(docRef, {value:newSteps});
+                return transaction.update(docRef, {value: newSteps});
             }
 
         })
@@ -158,9 +184,6 @@ async function deleteOriginal(snap) {
 
 // Timestamp in Variabel aufteilen
 function splitTimestamp(timestamp) {
-
-    timestamp = timestamp.toDate();
-
 
     const day = timestamp.getDate();
     const month = timestamp.getMonth() + 1;
