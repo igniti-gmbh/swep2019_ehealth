@@ -1,12 +1,10 @@
 import datetime
+import functools
 import json
-import dash
 import pandas as pd
 import plotly.graph_objs as go
 from dash.dependencies import Input, Output
 from flask import session
-import functools
-
 from .callback_functions import has_cookie_access
 from ..python_firebase.firestore_connect import store
 
@@ -17,16 +15,18 @@ def register_callbacks(dashapp):
         [Input('date-picker', 'date'), Input('interval-component', 'n_intervals')], )
     def clean_data(date, n):
 
-        date = datetime.datetime.strptime(date.split(' ')[0], '%Y-%m-%d')
+        date = datetime.datetime.now().strptime(date.split(' ')[0], '%Y-%m-%d')
+        accountInfos = getAccInfos()
+        arduinoData = getCurrentArduino(accountInfos['room'])
         df = getValuesFromFirebase(date)
         graphDf = createDataframe(df)
         totalSteps = dfTotal(graphDf)
-        accountInfos = getAccInfos()
 
         datasets = {
             'df': graphDf.to_json(orient='split', date_format='iso'),
             'totalSteps': totalSteps,
             'accountInfos': accountInfos,
+            'arduinoData': arduinoData,
         }
 
         return json.dumps(datasets)
@@ -44,13 +44,13 @@ def register_callbacks(dashapp):
         Output("current_date", "children"),
         [Input('intermediate-value', 'children')])
     def show_date(n):
-        return pd.Timestamp.now().date().strftime('%d.%m.%Y')
+        return datetime.datetime.now().date().strftime('%d.%m.%Y')
 
     @dashapp.callback(
         Output("current_time", "children"),
         [Input('intermediate-value', 'children')])
     def show_time(n):
-        return pd.Timestamp.now().time().strftime('%H:%M')
+        return datetime.datetime.now().time().strftime('%H:%M')
 
     @dashapp.callback(
         Output("step_goal", "children"),
@@ -84,7 +84,7 @@ def register_callbacks(dashapp):
     @dashapp.callback(
         Output("position", "children"),
         [Input('intermediate-value', 'children')])
-    def show_display_name(json_data):
+    def show_position(json_data):
         data = json.loads(json_data)
         position = data['accountInfos']['position']
 
@@ -129,6 +129,42 @@ def register_callbacks(dashapp):
         return data['totalSteps']
 
     @dashapp.callback(
+        Output("airquality", "children"),
+        [Input('intermediate-value', 'children')])
+    @functools.lru_cache(maxsize=32)
+    def reload_air_quality(json_data):
+        data = json.loads(json_data)
+
+        return str((data['arduinoData']['gas']) * 100) + '%'
+
+    @dashapp.callback(
+        Output("temperature", "children"),
+        [Input('intermediate-value', 'children')])
+    @functools.lru_cache(maxsize=32)
+    def reload_air_quality(json_data):
+        data = json.loads(json_data)
+
+        return str(data['arduinoData']['temperature']) + ' °C'
+
+    @dashapp.callback(
+        Output("humidity", "children"),
+        [Input('intermediate-value', 'children')])
+    @functools.lru_cache(maxsize=32)
+    def reload_air_quality(json_data):
+        data = json.loads(json_data)
+
+        return str(data['arduinoData']['humidity']) + '%'
+
+    @dashapp.callback(
+        Output("pressure", "children"),
+        [Input('intermediate-value', 'children')])
+    @functools.lru_cache(maxsize=32)
+    def reload_air_quality(json_data):
+        data = json.loads(json_data)
+
+        return str(data['arduinoData']['pressure']) + ' hPa'
+
+    @dashapp.callback(
         Output('hours_graph', "figure"),
         [Input('intermediate-value', 'children')])
     @functools.lru_cache(maxsize=32)
@@ -144,7 +180,7 @@ def register_callbacks(dashapp):
                       paper_bgcolor="#262a30",
                       legend=dict(font=dict(size=10), orientation="h"),
                       xaxis=dict(type='category', title='hour', color='#ededed'),
-                      yaxis=dict(title='steps', rangemode='nonnegative', color='#ededed'),)
+                      yaxis=dict(title='steps', rangemode='nonnegative', color='#ededed'), )
 
         data = [go.Bar(
             x=df['hour'],
@@ -189,7 +225,6 @@ def register_callbacks(dashapp):
             dates.append(date.strftime('%d.%m.%Y'))
             values.append(total)
 
-
         data = [go.Bar(
             x=dates,
             y=values,
@@ -197,6 +232,7 @@ def register_callbacks(dashapp):
 
         fig = go.Figure(data=data, layout=layout)
         return fig
+
 
 @functools.lru_cache(maxsize=3)
 def getValuesFromFirebase(date):
@@ -209,10 +245,9 @@ def getValuesFromFirebase(date):
     # dataframe aus dem graph erstellt wird
     df = pd.DataFrame(columns=['hour', 'value'])
 
-    day = date.day
     colRef = store.collection(
         'users/' + str(session['uid']) + '/' + str(date.year) + '/' + str(date.month) + '/'
-        + str(day))
+        + str(date.day))
     snapshot = colRef.list_documents()
 
     for doc in snapshot:
@@ -231,6 +266,7 @@ def getValuesFromFirebase(date):
 
     return df
 
+
 def dfTotal(df):
     total = 0
 
@@ -238,6 +274,7 @@ def dfTotal(df):
         total += row['value']
 
     return total
+
 
 @functools.lru_cache(maxsize=32)
 def getAccInfos():
@@ -263,3 +300,47 @@ def createDataframe(df):
     df.sort_values(by=['hour'], inplace=True)
 
     return df
+
+
+def getCurrentArduino(room):
+    date = datetime.datetime.now()
+
+    docRef = store.document(
+        'rooms/' + str(room) + '/' + str(date.year) + '/' + str(date.month) + '/'
+        + str(date.day) + '/' + str(date.hour))
+
+    while True:
+
+        if docRef.get().exists is False:
+
+            date = date - datetime.timedelta(hours=1)
+
+            docRef = store.document(
+                'rooms/' + str(room) + '/' + str(date.year) + '/' + str(date.month) + '/'
+                + str(date.day) + '/' + str(date.hour))
+
+            if docRef.get().exists is False:
+                valueJSON = {
+                    'temperature': 0,
+                    'gas': 0,
+                    'humidity': 0,
+                    'pressure': 0,
+                }
+
+                return valueJSON
+        break
+
+    docDic = docRef.get().to_dict()
+
+    valueJSON = {
+        'temperature': docDic['temperatureCurrent'],
+        'gas': docDic['gasCurrent'],
+        'humidity': docDic['humidityCurrent'],
+        'pressure': docDic['pressureCurrent'],
+    }
+
+    for key in valueJSON:
+        if valueJSON[key] is None:
+            valueJSON[key] = 0
+
+    return valueJSON

@@ -13,7 +13,7 @@ exports.addUserToDB = functions.auth.user().onCreate((user) => {
 
     let data = {
         email: user.email,
-        room: null,
+        room: 450,
         position: null,
         stepgoal: 10000,
         age: null,
@@ -69,8 +69,6 @@ exports.moveArduinoData = functions.database.ref('/{deviceId}/{document}')
         await newTimestamp.setMinutes(timestamp.getMinutes() + offsetChange);
         const time_array = await splitTimestamp(newTimestamp);
 
-        console.log(time_array);
-
         // Referenz wohin Wert geschrieben werden soll
         let docRef = await db.doc('rooms/' + room + '/' + time_array[2] + '/' + time_array[1] + '/'
             + time_array[0] + '/' + time_array[3]);
@@ -78,38 +76,59 @@ exports.moveArduinoData = functions.database.ref('/{deviceId}/{document}')
         //Batch Objekt erstellen
         let batch = await db.batch();
 
-        // Vergleichen ob aktueller Wert in Übersicht geschrieben werden soll
-        const currentTimestamp = await docRef.get().then(doc => {
-            return doc.get('timestamp')
-        });
+        // Fuegt Durchschnittaswert in das Dokument ein
+        const currentDocSnapshot = await docRef.get();
 
-
-        if (!currentTimestamp || currentTimestamp.getTime() < timestamp.getTime()) {
+        if (!currentDocSnapshot.exists) {
             batch.set(docRef, {
-                'gas': gas,
-                'humidity': humidity,
-                'pressure': pressure,
-                'temperature': temperature,
-                'timestamp': timestamp
+                'gasCurrent': gas,
+                'humidityCurrent': humidity,
+                'pressureCurrent': pressure,
+                'temperatureCurrent': temperature,
+                'timestampCurrent' : timestamp,
+                'gasAverage': gas,
+                'humidityAverage': humidity,
+                'pressureAverage': pressure,
+                'temperatureAverage': temperature,
+                'values': 1,
+            })
+        } else {
+
+            const values = currentDocSnapshot.data();
+
+            batch.update(docRef, {
+                'gasAverage': newAverage(values['gasAverage'], gas, values['values']),
+                'humidityAverage': newAverage(values['humidityAverage'], humidity, values['values']),
+                'pressureAverage': newAverage(values['pressureAverage'], pressure, values['values']),
+                'temperatureAverage': newAverage(values['temperatureAverage'], temperature, values['values']),
+                'values': values['values'] + 1,
+                'gasCurrent': gas,
+                'humidityCurrent': humidity,
+                'pressureCurrent': pressure,
+                'temperatureCurrent': temperature,
+                'timestampCurrent' : timestamp,
             })
         }
+
+
+
 
         // Batch schreiben und commiten
         batch.set(docRef.collection('gas').doc(time.toString()), {
             'timestamp': timestamp,
-            'gas': gas
+            'value': gas
         });
         batch.set(docRef.collection('humidity').doc(time.toString()), {
             'timestamp': timestamp,
-            'humidity': humidity
+            'value': humidity
         });
         batch.set(docRef.collection('pressure').doc(time.toString()), {
             'timestamp': timestamp,
-            'pressure': pressure
+            'value': pressure
         });
         batch.set(docRef.collection('temperature').doc(time.toString()), {
             'timestamp': timestamp,
-            'temperature': temperature
+            'value': temperature
         });
 
         await batch.commit();
@@ -193,6 +212,15 @@ function splitTimestamp(timestamp) {
     return [day, month, year, hours];
 }
 
+function newAverage (currentValue, addedValue, valueTotal){
+
+    let newValue = currentValue * valueTotal;
+    newValue = newValue + addedValue;
+    newValue = newValue / (valueTotal  + 1);
+
+    return newValue
+
+}
 
 
 

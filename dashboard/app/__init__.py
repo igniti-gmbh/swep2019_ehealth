@@ -10,6 +10,7 @@ def create_app():
     server.config.from_object(config.ProductionConfig)
 
     register_blueprints(server)
+    # noinspection PyTypeChecker
     register_dashapps(server)
 
     return server

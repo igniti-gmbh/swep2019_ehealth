@@ -108,14 +108,6 @@ loggedin = html.Div(
                                     [html.H6(id="step_goal"), html.P("Schrittziel")],
                                     className="mini_container",
                                 ),
-                                html.Div(
-                                    [html.H6("/"), html.P("Luftdruck")],
-                                    className="mini_container",
-                                ),
-                                html.Div(
-                                    [html.H6("/"), html.P("Temparatur")],
-                                    className="mini_container",
-                                ),
                             ],
                             id="info-container-one",
                             className="row container-display",
@@ -143,44 +135,130 @@ loggedin = html.Div(
                 ),
             ],
             className="row flex-display",
-        ), html.Div([
-        html.Div(
-            [dcc.DatePickerRange(
-                id='date-picker-range',
-                start_date=str(datetime.datetime.now()-datetime.timedelta(days=7)),
-                end_date_placeholder_text='Select a date!',
-                display_format='DD.MM.YYYY'
-            ), dcc.Graph(id="days_graph",
-                         config={'displayModeBar': False},
-                         figure={
-                             'layout': {
-                                 'plot_bgcolor': colors['background'],
-                                 'paper_bgcolor': colors['background'],
-                                 'font': {
-                                     'color': colors['text']
+        ),
+        html.Div([
+            html.Div(
+                [
+                    html.Div(
+                        [html.H6(id="airquality"), html.P("Luftqualität")],
+
+                        className="mini_container",
+                    ),
+                    html.Div(
+                        [html.H6(id="temperature"), html.P("Temperatur")],
+                        className="mini_container",
+                    ),
+                    html.Div(
+                        [html.H6(id="humidity"), html.P("Luftfeuchtigkeit")],
+                        className="mini_container",
+                    ),
+                    html.Div(
+                        [html.H6(id="pressure"), html.P("Luftdruck")],
+                        className="mini_container",
+                    ),
+                ],
+                className="row container-display",
+                id="info-container-two",
+            ),
+
+        ],
+            className="twelve columns",
+        ),
+        # html.Div(
+        #     [
+        #         html.Div(
+        #             [dcc.Graph(id="gas_graph",
+        #                        config={'displayModeBar': False},
+        #                        figure={
+        #                            'layout': {
+        #                                'plot_bgcolor': colors['background'],
+        #                                'paper_bgcolor': colors['background'],
+        #                                'font': {
+        #                                    'color': colors['text']
+        #                                }
+        #                            }
+        #                        }
+        #                        )],
+        #             id='gasHistory',
+        #             className="pretty_container six columns",
+        #
+        #         ),
+        #         html.Div(
+        #             [dcc.Graph(id="temperature_graph",
+        #                        config={'displayModeBar': False},
+        #                        figure={
+        #                            'layout': {
+        #                                'plot_bgcolor': colors['background'],
+        #                                'paper_bgcolor': colors['background'],
+        #                                'font': {
+        #                                    'color': colors['text']
+        #                                }
+        #                            }
+        #                        }
+        #                        )],
+        #             id='temperatureHistory',
+        #             className="pretty_container six columns",
+        #
+        #         ), html.Div(
+        #         [dcc.Graph(id="humidity_graph",
+        #                    config={'displayModeBar': False},
+        #                    figure={
+        #                        'layout': {
+        #                            'plot_bgcolor': colors['background'],
+        #                            'paper_bgcolor': colors['background'],
+        #                            'font': {
+        #                                'color': colors['text']
+        #                            }
+        #                        }
+        #                    }
+        #                    )],
+        #         id='humidityHistory',
+        #         className="pretty_container six columns",
+        #
+        #     ),html.Div(
+        #         [dcc.Graph(id="pressure_graph",
+        #                    config={'displayModeBar': False},
+        #                    figure={
+        #                        'layout': {
+        #                            'plot_bgcolor': colors['background'],
+        #                            'paper_bgcolor': colors['background'],
+        #                            'font': {
+        #                                'color': colors['text']
+        #                            }
+        #                        }
+        #                    }
+        #                    )],
+        #         id='pressureHistory',
+        #         className="pretty_container six columns",
+        #
+        #     ),
+        #     ],
+        #     className="row flex-display",
+        # ),
+        html.Div([
+            html.Div(
+                [dcc.DatePickerRange(
+                    id='date-picker-range',
+                    start_date=str(datetime.datetime.now() - datetime.timedelta(days=7)),
+                    end_date_placeholder_text='Select a date!',
+                    display_format='DD.MM.YYYY'
+                ), dcc.Graph(id="days_graph",
+                             config={'displayModeBar': False},
+                             figure={
+                                 'layout': {
+                                     'plot_bgcolor': colors['background'],
+                                     'paper_bgcolor': colors['background'],
+                                     'font': {
+                                         'color': colors['text']
+                                     }
                                  }
                              }
-                         }
-                         )],
-            className="pretty_container seven columns",
+                             )],
+                className="pretty_container twelve colums",
+            ),
+        ],
+            className="row flex-container",
         ),
-        html.Div(
-            [dcc.Graph(id="individual_graph",
-                       figure={
-                           'layout': {
-                               'plot_bgcolor': colors['background'],
-                               'paper_bgcolor': colors['background'],
-                               'font': {
-                                   'color': colors['text']
-                               }
-                           }
-                       }
-                       )],
-            className="pretty_container five columns",
-        ),
-    ],
-        className="row flex-display",
-    ),
         # Hidden div inside the app that stores the intermediate value
         html.Div(
             id='intermediate-value',
