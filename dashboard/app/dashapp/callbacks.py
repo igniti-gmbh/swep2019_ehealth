@@ -7,6 +7,7 @@ from dash.dependencies import Input, Output
 from flask import session
 from .callback_functions import has_cookie_access
 from ..python_firebase.firestore_connect import store
+from dateutil import tz
 
 
 def register_callbacks(dashapp):
@@ -14,10 +15,9 @@ def register_callbacks(dashapp):
         Output('intermediate-value', 'children'),
         [Input('date-picker', 'date'), Input('interval-component', 'n_intervals')], )
     def clean_data(date, n):
-
-        date = datetime.datetime.now().strptime(date.split(' ')[0], '%Y-%m-%d')
+        date = normalizeTime(datetime.datetime.now().strptime(date.split(' ')[0], '%Y-%m-%d'))
         accountInfos = getAccInfos()
-        arduinoData = getCurrentArduino(accountInfos['room'])
+        arduinoData = getCurrentArduino(accountInfos['room'], getCurrentTime())
         df = getValuesFromFirebase(date)
         graphDf = createDataframe(df)
         totalSteps = dfTotal(graphDf)
@@ -43,14 +43,16 @@ def register_callbacks(dashapp):
     @dashapp.callback(
         Output("current_date", "children"),
         [Input('intermediate-value', 'children')])
-    def show_date(n):
-        return datetime.datetime.now().date().strftime('%d.%m.%Y')
+    def show_date(json_data):
+        timestamp = getCurrentTime()
+        return timestamp.date().strftime('%d.%m.%Y')
 
     @dashapp.callback(
         Output("current_time", "children"),
         [Input('intermediate-value', 'children')])
-    def show_time(n):
-        return datetime.datetime.now().time().strftime('%H:%M')
+    def show_time(json_data):
+        timestamp = getCurrentTime()
+        return timestamp.time().strftime('%H:%M')
 
     @dashapp.callback(
         Output("step_goal", "children"),
@@ -135,13 +137,26 @@ def register_callbacks(dashapp):
     def reload_air_quality(json_data):
         data = json.loads(json_data)
 
-        return str((data['arduinoData']['gas']) * 100) + '%'
+        value = data['arduinoData']['gas']
+
+        if value <= 0.2:
+            return "Sehr gut"
+        elif value <= 0.4:
+            return "Gut"
+        elif value <= 0.6:
+            return "Okay"
+        elif value <= 0.8:
+            return "Schlecht"
+        else:
+            return "Sehr Schlecht"
+
+
 
     @dashapp.callback(
         Output("temperature", "children"),
         [Input('intermediate-value', 'children')])
     @functools.lru_cache(maxsize=32)
-    def reload_air_quality(json_data):
+    def reload_temperature(json_data):
         data = json.loads(json_data)
 
         return str(data['arduinoData']['temperature']) + ' °C'
@@ -234,6 +249,7 @@ def register_callbacks(dashapp):
         return fig
 
 
+# Holt Schrittdaten des Tages
 @functools.lru_cache(maxsize=3)
 def getValuesFromFirebase(date):
     range_start = 23
@@ -302,8 +318,7 @@ def createDataframe(df):
     return df
 
 
-def getCurrentArduino(room):
-    date = datetime.datetime.now()
+def getCurrentArduino(room, date):
 
     docRef = store.document(
         'rooms/' + str(room) + '/' + str(date.year) + '/' + str(date.month) + '/'
@@ -344,3 +359,24 @@ def getCurrentArduino(room):
             valueJSON[key] = 0
 
     return valueJSON
+
+def getCurrentTime():
+    return normalizeTime(datetime.datetime.now())
+
+
+def normalizeTime(utc):
+    from_zone = tz.tzutc()
+    to_zone = tz.gettz('Europe/Berlin')
+
+    utc = datetime.datetime.utcnow()
+    utc = utc.replace(tzinfo=from_zone)
+
+    # Convert time zone
+    central = utc.astimezone(to_zone)
+
+    return central
+
+
+def datetimeJSONconvert(o):
+    if isinstance(o, datetime.datetime):
+        return o.__str__()
