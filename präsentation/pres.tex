@@ -1,0 +1,124 @@
+\documentclass[11pt]{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usetheme{Dresden}
+\begin{document}
+	\author{Felix Fleisch, Steffen Klute, Marcel Scheuner}
+	\title{Projekt E-Health}
+	\subtitle{SWEP}
+	%\logo{}
+	%\institute{}
+	%\date{}
+	%\subject{}
+	%\setbeamercovered{transparent}
+	%\setbeamertemplate{navigation symbols}{}
+	\begin{frame}[plain]
+	\maketitle
+\end{frame}
+
+
+\section{Konzept}
+
+
+
+\begin{frame}
+\frametitle{Konzept}
+
+\begin{itemize}
+	\item System um die Aktivität und Fitness in einer Arbeitsumgebung aufzunehmen
+	\item Daten werden erhoben in Räumen und auf dem Smartphone
+\end{itemize}
+
+\end{frame}
+
+
+
+\section{Aufbau}
+\begin{frame}
+\frametitle{Aufbau}
+\begin{centering}
+	\hspace*{1.5 cm}\includegraphics{zeichnung.eps}
+\end{centering}
+
+\end{frame}
+
+
+\section{Backend}
+
+\subsection{Firebase}
+\begin{frame}
+\frametitle{Firebase}
+\begin{itemize}
+\item Plattform zum Entwickeln von Mobil- und Webanwendungen
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}
+	\frametitle{Vorteile}
+	
+	\begin{itemize}
+		\item übernimmt Hosting
+		\item Cloud Functions
+		\item einfach zu verwalten
+		\item APIs für viele Sprachen
+	\end{itemize}
+
+\end{frame}
+
+\subsection{Sensorstation}
+
+\begin{frame}
+\frametitle{ESP8266}
+\begin{itemize}
+\item ESP8226 um Daten über einen Raum aufzunehmen und hochzuladen
+\item ist Internetfähig und lädt in die Firebase hoch (WLAN)
+\item kann per USB eingestellt werden
+\item BME680 misst Werte und übermittelt per I$^2$C
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+	\frametitle{BME680}
+	\begin{itemize}
+	\item Temperatur in $^\circ$C
+	\item Luftdruck in Pa
+	\item Luftfeuchtigkeit in $\%$
+	\item Luftqualität
+	\end{itemize}
+\end{frame}
+
+\section{Frontend}
+
+\subsection{App}
+\begin{frame}
+\frametitle{App}
+	\begin{itemize}
+	\item User kann sich einloggen
+	\item zeichnet Schrittzahl auf
+	\item ermöglicht Anzeige von eigenen Daten
+	\item z.b Schrittanzahl, Werte der zugewiesenen Räume
+	\end{itemize}
+
+\end{frame}
+
+\subsection{Webinterface}
+\begin{frame}
+\frametitle{Dashboard}
+	\begin{itemize}
+	\item User kann sich einloggen
+	\item Anzeige der gesammelten, aufgearbeiteten Werte
+\end{itemize}
+\end{frame}
+
+
+\section{SCRUM}
+
+\subsection{Sprints}
+
+\subsection{Vor und Nachteile}
+
+
+\section{Fazit}
+\end{document}
