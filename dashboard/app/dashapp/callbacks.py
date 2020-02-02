@@ -15,15 +15,34 @@ def register_callbacks(dashapp):
         Output('intermediate-value', 'children'),
         [Input('date-picker', 'date'), Input('interval-component', 'n_intervals')], )
     def clean_data(date, n):
-        date = normalizeTime(datetime.datetime.now().strptime(date.split(' ')[0], '%Y-%m-%d'))
+
+        # Verwandelt nur das Datum in Datetime
+        date = datetime.datetime.now().strptime(date.split(' ')[0], '%Y-%m-%d')
+        currentTime = getCurrentTime()
+
+        # Ueberprueft ob es der aktuelle Tag ist
+        if date.date() == datetime.datetime.now().date():
+            date = datetime.datetime.now()
+
+        date = normalizeTime(date)
         accountInfos = getAccInfos()
-        arduinoData = getCurrentArduino(accountInfos['room'], getCurrentTime())
-        df = getValuesFromFirebase(date)
-        graphDf = createDataframe(df)
-        totalSteps = dfTotal(graphDf)
+        arduinoData = getCurrentArduino(accountInfos['room'], currentTime)
+
+        steps_hours_today = getStepsForDay(date)
+        steps_hour_df = createDataframe(steps_hours_today)
+
+        temperature_hours_today = getTemperatureForDay(currentTime, accountInfos['room'])
+        temperature_hour_df = createDataframe(temperature_hours_today)
+
+        gas_hours_today = getGasForDay(currentTime, accountInfos['room'])
+        gas_hour_df = createDataframe(gas_hours_today)
+
+        totalSteps = dfTotal(steps_hour_df)
 
         datasets = {
-            'df': graphDf.to_json(orient='split', date_format='iso'),
+            'stepsHoursDf': steps_hour_df.to_json(orient='split', date_format='iso'),
+            'temperatureHoursDf': temperature_hour_df.to_json(orient='split', date_format='iso'),
+            'gasHoursDf': gas_hour_df.to_json(orient='split', date_format='iso'),
             'totalSteps': totalSteps,
             'accountInfos': accountInfos,
             'arduinoData': arduinoData,
@@ -36,9 +55,9 @@ def register_callbacks(dashapp):
         [Input('intermediate-value', 'children')])
     def show_status(n):
         if has_cookie_access():
-            return "Connected"
+            return "Verbunden"
         else:
-            return "Disconnected"
+            return "Nicht Verbunden"
 
     @dashapp.callback(
         Output("current_date", "children"),
@@ -98,7 +117,6 @@ def register_callbacks(dashapp):
     @dashapp.callback(
         Output("room", "children"),
         [Input('intermediate-value', 'children')])
-    @functools.lru_cache(maxsize=32)
     def show_room(json_data):
         data = json.loads(json_data)
         room = data['accountInfos']['room']
@@ -111,7 +129,6 @@ def register_callbacks(dashapp):
     @dashapp.callback(
         Output("age", "children"),
         [Input('intermediate-value', 'children')])
-    @functools.lru_cache(maxsize=32)
     def show_age(json_data):
         data = json.loads(json_data)
         age = data['accountInfos']['age']
@@ -124,7 +141,6 @@ def register_callbacks(dashapp):
     @dashapp.callback(
         Output("stepsToday", "children"),
         [Input('intermediate-value', 'children')])
-    @functools.lru_cache(maxsize=32)
     def reload_steps_today(json_data):
         data = json.loads(json_data)
 
@@ -133,11 +149,13 @@ def register_callbacks(dashapp):
     @dashapp.callback(
         Output("airquality", "children"),
         [Input('intermediate-value', 'children')])
-    @functools.lru_cache(maxsize=32)
     def reload_air_quality(json_data):
         data = json.loads(json_data)
 
         value = data['arduinoData']['gas']
+
+        if value is None:
+            return '/'
 
         if value <= 0.2:
             return "Sehr gut"
@@ -150,43 +168,49 @@ def register_callbacks(dashapp):
         else:
             return "Sehr Schlecht"
 
-
-
     @dashapp.callback(
         Output("temperature", "children"),
         [Input('intermediate-value', 'children')])
-    @functools.lru_cache(maxsize=32)
     def reload_temperature(json_data):
         data = json.loads(json_data)
+        value = data['arduinoData']['temperature']
 
-        return str(data['arduinoData']['temperature']) + ' °C'
+        if value is None:
+            return '/'
+
+        return str(value) + ' °C'
 
     @dashapp.callback(
         Output("humidity", "children"),
         [Input('intermediate-value', 'children')])
-    @functools.lru_cache(maxsize=32)
     def reload_air_quality(json_data):
         data = json.loads(json_data)
+        value = data['arduinoData']['humidity']
 
-        return str(data['arduinoData']['humidity']) + '%'
+        if value is None:
+            return '/'
+
+        return str(value) + '%'
 
     @dashapp.callback(
         Output("pressure", "children"),
         [Input('intermediate-value', 'children')])
-    @functools.lru_cache(maxsize=32)
     def reload_air_quality(json_data):
         data = json.loads(json_data)
+        value = data['arduinoData']['pressure']
 
-        return str(data['arduinoData']['pressure']) + ' hPa'
+        if value is None:
+            return '/'
+
+        return str(value) + ' hPa'
 
     @dashapp.callback(
         Output('hours_graph', "figure"),
         [Input('intermediate-value', 'children')])
-    @functools.lru_cache(maxsize=32)
     def show_graph(json_data):
 
         data = json.loads(json_data)
-        df = pd.read_json(data['df'], orient='split')
+        df = pd.read_json(data['stepsHoursDf'], orient='split')
 
         layout = dict(autosize=True,
                       margin=dict(l=30, r=30, b=20, t=40),
@@ -194,10 +218,63 @@ def register_callbacks(dashapp):
                       plot_bgcolor="#262a30",
                       paper_bgcolor="#262a30",
                       legend=dict(font=dict(size=10), orientation="h"),
-                      xaxis=dict(type='category', title='hour', color='#ededed'),
-                      yaxis=dict(title='steps', rangemode='nonnegative', color='#ededed'), )
+                      xaxis=dict(type='category', title='Stunde', color='#ededed'),
+                      yaxis=dict(title='Schritte', rangemode='nonnegative', color='#ededed'), )
 
         data = [go.Bar(
+            x=df['hour'],
+            y=df['value'],
+        )]
+
+        fig = go.Figure(data=data, layout=layout)
+        return fig
+
+
+    @dashapp.callback(
+        Output('temperature_graph', "figure"),
+        [Input('intermediate-value', 'children')])
+    def show_graph(json_data):
+
+        data = json.loads(json_data)
+        df = pd.read_json(data['temperatureHoursDf'], orient='split')
+
+        layout = dict(autosize=True,
+                      margin=dict(l=30, r=30, b=20, t=40),
+                      hovermode="closest",
+                      plot_bgcolor="#262a30",
+                      paper_bgcolor="#262a30",
+                      legend=dict(font=dict(size=10), orientation="h"),
+                      xaxis=dict(type='category', title='Stunde', color='#ededed'),
+                      yaxis=dict(title='Luftqualität', rangemode='nonnegative', color='#ededed'), )
+
+        data = [go.Scatter(
+            x=df['hour'],
+            y=df['value'],
+        )]
+
+        fig = go.Figure(data=data, layout=layout)
+        return fig
+
+
+    @dashapp.callback(
+        Output('airquality_graph', "figure"),
+        [Input('intermediate-value', 'children')])
+    @functools.lru_cache(maxsize=32)
+    def show_graph(json_data):
+
+        data = json.loads(json_data)
+        df = pd.read_json(data['gasHoursDf'], orient='split')
+
+        layout = dict(autosize=True,
+                      margin=dict(l=30, r=30, b=20, t=40),
+                      hovermode="closest",
+                      plot_bgcolor="#262a30",
+                      paper_bgcolor="#262a30",
+                      legend=dict(font=dict(size=10), orientation="h"),
+                      xaxis=dict(type='category', title='Stunde', color='#ededed'),
+                      yaxis=dict(title='Temperatur', rangemode='nonnegative', color='#ededed'), )
+
+        data = [go.Scatter(
             x=df['hour'],
             y=df['value'],
         )]
@@ -208,6 +285,7 @@ def register_callbacks(dashapp):
     @dashapp.callback(
         Output("days_graph", "figure"),
         [Input('date-picker-range', 'start_date'), Input('date-picker-range', 'end_date')])
+    @functools.lru_cache(maxsize=32)
     def show_day_graph(start_date, end_date):
 
         layout = dict(autosize=True,
@@ -216,7 +294,7 @@ def register_callbacks(dashapp):
                       plot_bgcolor="#262a30",
                       paper_bgcolor="#262a30",
                       legend=dict(font=dict(size=10), orientation="h"),
-                      xaxis=dict(type='category', title='days', color='#ededed'),
+                      xaxis=dict(type='category', title='Tage', color='#ededed'),
                       yaxis=dict(title='steps', rangemode='nonnegative', color='#ededed'),
                       )
 
@@ -235,7 +313,7 @@ def register_callbacks(dashapp):
         date_list = [start_date + datetime.timedelta(days=x) for x in range(timedelta.days + 1)]
 
         for date in date_list:
-            df_values = getValuesFromFirebase(date)
+            df_values = getStepsForDay(date)
             total = dfTotal(df_values)
             dates.append(date.strftime('%d.%m.%Y'))
             values.append(total)
@@ -250,8 +328,8 @@ def register_callbacks(dashapp):
 
 
 # Holt Schrittdaten des Tages
-@functools.lru_cache(maxsize=3)
-def getValuesFromFirebase(date):
+@functools.lru_cache(maxsize=32)
+def getStepsForDay(date):
     range_start = 23
     range_end = -1
     range_iteration = -1
@@ -277,6 +355,72 @@ def getValuesFromFirebase(date):
                 df_new = pd.DataFrame({
                     'hour': [iterated_hour.hour],
                     'value': doc.get().get('value'),
+                })
+                df = df.append(df_new)
+
+    return df
+
+
+@functools.lru_cache(maxsize=6)
+def getTemperatureForDay(date, room):
+    range_start = 23
+    range_end = -1
+    range_iteration = -1
+
+    date = date.replace(hour=23, minute=59, second=59)
+
+    # dataframe aus dem graph erstellt wird
+    df = pd.DataFrame(columns=['hour', 'value'])
+
+    colRef = store.collection(
+        'rooms/' + str(room) + '/' + str(date.year) + '/' + str(date.month) + '/'
+        + str(date.day))
+    snapshot = colRef.list_documents()
+
+    for doc in snapshot:
+        docID = doc.id
+
+        for i in range(range_start, range_end, range_iteration):
+
+            iterated_hour = date - datetime.timedelta(hours=i)
+
+            if int(docID) == iterated_hour.hour:
+                df_new = pd.DataFrame({
+                    'hour': [iterated_hour.hour],
+                    'value': doc.get().get('temperatureAverage'),
+                })
+                df = df.append(df_new)
+
+    return df
+
+
+@functools.lru_cache(maxsize=6)
+def getGasForDay(date, room):
+    range_start = 23
+    range_end = -1
+    range_iteration = -1
+
+    date = date.replace(hour=23, minute=59, second=59)
+
+    # dataframe aus dem graph erstellt wird
+    df = pd.DataFrame(columns=['hour', 'value'])
+
+    colRef = store.collection(
+        'rooms/' + str(room) + '/' + str(date.year) + '/' + str(date.month) + '/'
+        + str(date.day))
+    snapshot = colRef.list_documents()
+
+    for doc in snapshot:
+        docID = doc.id
+
+        for i in range(range_start, range_end, range_iteration):
+
+            iterated_hour = date - datetime.timedelta(hours=i)
+
+            if int(docID) == iterated_hour.hour:
+                df_new = pd.DataFrame({
+                    'hour': [iterated_hour.hour],
+                    'value': doc.get().get('gasAverage'),
                 })
                 df = df.append(df_new)
 
@@ -319,7 +463,6 @@ def createDataframe(df):
 
 
 def getCurrentArduino(room, date):
-
     docRef = store.document(
         'rooms/' + str(room) + '/' + str(date.year) + '/' + str(date.month) + '/'
         + str(date.day) + '/' + str(date.hour))
@@ -336,10 +479,10 @@ def getCurrentArduino(room, date):
 
             if docRef.get().exists is False:
                 valueJSON = {
-                    'temperature': 0,
-                    'gas': 0,
-                    'humidity': 0,
-                    'pressure': 0,
+                    'temperature': None,
+                    'gas': None,
+                    'humidity': None,
+                    'pressure': None,
                 }
 
                 return valueJSON
@@ -360,15 +503,15 @@ def getCurrentArduino(room, date):
 
     return valueJSON
 
+
 def getCurrentTime():
     return normalizeTime(datetime.datetime.now())
 
 
 def normalizeTime(utc):
-    from_zone = tz.tzutc()
+    from_zone = tz.tzlocal()
     to_zone = tz.gettz('Europe/Berlin')
 
-    utc = datetime.datetime.utcnow()
     utc = utc.replace(tzinfo=from_zone)
 
     # Convert time zone

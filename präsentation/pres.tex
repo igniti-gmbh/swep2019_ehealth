@@ -4,7 +4,7 @@
 \usepackage{lmodern}
 \usetheme{Dresden}
 \begin{document}
-	\author{Felix Fleisch, Steffen Klute, Marcel Scheuner}
+	\author{Felix Fleisch, Steffen Klute, Marcel Schneuer}
 	\title{Projekt E-Health}
 	\subtitle{SWEP}
 	%\logo{}
@@ -51,6 +51,9 @@
 \frametitle{Firebase}
 \begin{itemize}
 \item Plattform zum Entwickeln von Mobil- und Webanwendungen
+\item Angebot von Google
+\item Kostenlose Version ermöglicht einfach kontrollierbares Prototyping
+\item Komplette Infrastruktur aus einem Guss
 \end{itemize}
 
 \end{frame}
@@ -59,10 +62,23 @@
 	\frametitle{Vorteile}
 	
 	\begin{itemize}
-		\item übernimmt Hosting
-		\item Cloud Functions
-		\item einfach zu verwalten
+		\item Übernimmt Authentifizierung und User Management
+		\item Cloud Functions automatisiert Prozesse
+		\item einfach zu verwalten mit NoSQL Firestore
 		\item APIs für viele Sprachen
+	\end{itemize}
+
+\end{frame}
+
+\begin{frame}
+	\frametitle{Log Rotation}
+	
+	\begin{itemize}
+		\item Anforderung: 10 User müssen pro Minute einen Wert schreiben können
+		\item 20k bei Google frei gegenüber 28 800 Schreibprozessen zur Verarbeitung
+		\item Dazu: Weitere Verarbeitungsprozesse für die Daten des Raums
+		\item Lösung: Montags bis Freitags von 8:00 bis 19:00 Anforderungen entsprechen
+		\item Sonst: Reduziertes Pushen alle 10 Minuten
 	\end{itemize}
 
 \end{frame}
@@ -95,6 +111,7 @@
 \begin{frame}
 \frametitle{App}
 	\begin{itemize}
+	\item Android Nativ
 	\item User kann sich einloggen
 	\item zeichnet Schrittzahl auf
 	\item ermöglicht Anzeige von eigenen Daten
@@ -107,7 +124,9 @@
 \begin{frame}
 \frametitle{Dashboard}
 	\begin{itemize}
-	\item User kann sich einloggen
+	\item Flask mit Plot.ly Dash 
+	\item User kann Account erstellen und sich einloggen
+	\item User kann Profil-Einstellungen ändern
 	\item Anzeige der gesammelten, aufgearbeiteten Werte
 \end{itemize}
 \end{frame}
@@ -116,7 +135,28 @@
 \section{SCRUM}
 
 \subsection{Sprints}
+ 
+  \begin{frame}
+ \frametitle{Überblick}
+ \begin{itemize}
+ 	\item Sprint 2: Technologie Recherche, Datenbank-Modell und Einarbeitung
+ 	\item Sprint 3: Implementierung von Firebase Schnittstellen und Authentifizierung in App und Dashboard
+ 	\item Sprint 4: Schreiben und Verarbeitung der Daten, sowie korrekte Visualisierung der Schritte
+ 	\item Sprint 5: Darstellung der Raum Daten, sowie erweiterte Visualisierung der Schritte
+ 	\item Sprint 6: Code Optimierung und visuelle Refinements
+ \end{itemize}
+\end{frame}
 
+ 
+ \begin{frame}
+ \frametitle{Arbeitsweise}
+ \begin{itemize}
+ 	\item Kooperatives Coding über GitHub
+ 	\item Kommunikation über Telegram und persönliche Treffen
+ 	\item Wiki in OpenProject
+ 	 \item Meetings mit Product Owner alle zwei Wochen
+ \end{itemize}
+\end{frame}
 
 
 
