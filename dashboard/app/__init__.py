@@ -7,7 +7,7 @@ from .helper_functions import has_cookie_access
 
 def create_app():
     server = Flask(__name__)
-    server.config.from_object(config.ProductionConfig)
+    server.config.from_object(config.BaseConfig)
 
     register_blueprints(server)
     # noinspection PyTypeChecker
