@@ -11,6 +11,8 @@ from dateutil import tz
 
 
 def register_callbacks(dashapp):
+
+    #Verwaltet die Daten für die Schritte
     @dashapp.callback(
         Output('intermediate-value', 'children'),
         [Input('date-picker', 'date'), Input('interval-component', 'n_intervals')], )
@@ -18,7 +20,6 @@ def register_callbacks(dashapp):
 
         # Verwandelt nur das Datum in Datetime
         date = datetime.datetime.now().strptime(date.split(' ')[0], '%Y-%m-%d')
-        currentTime = getCurrentTime()
 
         # Ueberprueft ob es der aktuelle Tag ist
         if date.date() == datetime.datetime.now().date():
@@ -26,30 +27,47 @@ def register_callbacks(dashapp):
 
         date = normalizeTime(date)
         accountInfos = getAccInfos()
-        arduinoData = getCurrentArduino(accountInfos['room'], currentTime)
 
         steps_hours_today = getStepsForDay(date)
         steps_hour_df = createDataframe(steps_hours_today)
-
-        temperature_hours_today = getTemperatureForDay(currentTime, accountInfos['room'])
-        temperature_hour_df = createDataframe(temperature_hours_today)
-
-        gas_hours_today = getGasForDay(currentTime, accountInfos['room'])
-        gas_hour_df = createDataframe(gas_hours_today)
 
         totalSteps = dfTotal(steps_hour_df)
 
         datasets = {
             'stepsHoursDf': steps_hour_df.to_json(orient='split', date_format='iso'),
-            'temperatureHoursDf': temperature_hour_df.to_json(orient='split', date_format='iso'),
-            'gasHoursDf': gas_hour_df.to_json(orient='split', date_format='iso'),
             'totalSteps': totalSteps,
             'accountInfos': accountInfos,
-            'arduinoData': arduinoData,
         }
 
         return json.dumps(datasets)
 
+    # Verwaltet die Daten für die Schritte und sich nicht so oft ändernde
+    @dashapp.callback(
+        Output('intermediate-value-room', 'children'),
+        [Input('interval-component', 'n_intervals')], )
+    def clean_data(n):
+        accountInfos = getAccInfos()
+        room = accountInfos['room']
+
+        arduinoData = getCurrentArduino(room)
+
+
+        temperature_hours_today = getTemperatureForDay(room)
+        temperature_hour_df = createDataframe(temperature_hours_today, None)
+
+        gas_hours_today = getGasForDay(room)
+        gas_hour_df = createDataframe(gas_hours_today,None)
+
+        datasets = {
+            'temperatureHoursDf': temperature_hour_df.to_json(orient='split', date_format='iso'),
+            'gasHoursDf': gas_hour_df.to_json(orient='split', date_format='iso'),
+            'arduinoData': arduinoData,
+            'accountInfos': accountInfos,
+        }
+
+        return json.dumps(datasets)
+
+    #Anzeige von Uhrzeit und Verbindung
     @dashapp.callback(
         Output("connection_status", "children"),
         [Input('intermediate-value', 'children')])
@@ -73,6 +91,58 @@ def register_callbacks(dashapp):
         timestamp = getCurrentTime()
         return timestamp.time().strftime('%H:%M')
 
+#Anzeige der Daten in der linken Leiste
+
+    @dashapp.callback(
+        Output("displayName", "children"),
+        [Input('intermediate-value-room', 'children')])
+    def show_display_name(json_data):
+        data = json.loads(json_data)
+        name = data['accountInfos']['name']
+
+        if name is None:
+            return '/'
+        else:
+            return name
+
+    @dashapp.callback(
+        Output("position", "children"),
+        [Input('intermediate-value-room', 'children')])
+    def show_position(json_data):
+        data = json.loads(json_data)
+        position = data['accountInfos']['position']
+
+        if position is None:
+            return '/'
+        else:
+            return position
+
+    @dashapp.callback(
+        Output("room", "children"),
+        [Input('intermediate-value-room', 'children')])
+    def show_room(json_data):
+        data = json.loads(json_data)
+        room = data['accountInfos']['room']
+
+        if room is None:
+            return '/'
+        else:
+            return str(room)
+
+    @dashapp.callback(
+        Output("age", "children"),
+        [Input('intermediate-value-room', 'children')])
+    def show_age(json_data):
+        data = json.loads(json_data)
+        age = data['accountInfos']['age']
+
+        if age is None:
+            return '/'
+        else:
+            return str(age)
+
+    #Schrittziel und Schritte allgemein
+
     @dashapp.callback(
         Output("step_goal", "children"),
         [Input('intermediate-value', 'children')])
@@ -91,54 +161,6 @@ def register_callbacks(dashapp):
         return str(goal_reached) + '%'
 
     @dashapp.callback(
-        Output("displayName", "children"),
-        [Input('intermediate-value', 'children')])
-    def show_display_name(json_data):
-        data = json.loads(json_data)
-        name = data['accountInfos']['name']
-
-        if name is None:
-            return '/'
-        else:
-            return name
-
-    @dashapp.callback(
-        Output("position", "children"),
-        [Input('intermediate-value', 'children')])
-    def show_position(json_data):
-        data = json.loads(json_data)
-        position = data['accountInfos']['position']
-
-        if position is None:
-            return '/'
-        else:
-            return position
-
-    @dashapp.callback(
-        Output("room", "children"),
-        [Input('intermediate-value', 'children')])
-    def show_room(json_data):
-        data = json.loads(json_data)
-        room = data['accountInfos']['room']
-
-        if room is None:
-            return '/'
-        else:
-            return str(room)
-
-    @dashapp.callback(
-        Output("age", "children"),
-        [Input('intermediate-value', 'children')])
-    def show_age(json_data):
-        data = json.loads(json_data)
-        age = data['accountInfos']['age']
-
-        if age is None:
-            return '/'
-        else:
-            return str(age)
-
-    @dashapp.callback(
         Output("stepsToday", "children"),
         [Input('intermediate-value', 'children')])
     def reload_steps_today(json_data):
@@ -146,63 +168,7 @@ def register_callbacks(dashapp):
 
         return data['totalSteps']
 
-    @dashapp.callback(
-        Output("airquality", "children"),
-        [Input('intermediate-value', 'children')])
-    def reload_air_quality(json_data):
-        data = json.loads(json_data)
-
-        value = data['arduinoData']['gas']
-
-        if value is None:
-            return '/'
-
-        if value <= 0.2:
-            return "Sehr gut"
-        elif value <= 0.4:
-            return "Gut"
-        elif value <= 0.6:
-            return "Okay"
-        elif value <= 0.8:
-            return "Schlecht"
-        else:
-            return "Sehr Schlecht"
-
-    @dashapp.callback(
-        Output("temperature", "children"),
-        [Input('intermediate-value', 'children')])
-    def reload_temperature(json_data):
-        data = json.loads(json_data)
-        value = data['arduinoData']['temperature']
-
-        if value is None:
-            return '/'
-
-        return str(value) + ' °C'
-
-    @dashapp.callback(
-        Output("humidity", "children"),
-        [Input('intermediate-value', 'children')])
-    def reload_air_quality(json_data):
-        data = json.loads(json_data)
-        value = data['arduinoData']['humidity']
-
-        if value is None:
-            return '/'
-
-        return str(value) + '%'
-
-    @dashapp.callback(
-        Output("pressure", "children"),
-        [Input('intermediate-value', 'children')])
-    def reload_air_quality(json_data):
-        data = json.loads(json_data)
-        value = data['arduinoData']['pressure']
-
-        if value is None:
-            return '/'
-
-        return str(value) + ' hPa'
+    # Zeigt die Schritte nach Stunden an
 
     @dashapp.callback(
         Output('hours_graph', "figure"),
@@ -230,9 +196,70 @@ def register_callbacks(dashapp):
         return fig
 
 
+    #Anzeigen der Arduino Daten
+
+    @dashapp.callback(
+        Output("airquality", "children"),
+        [Input('intermediate-value-room', 'children')])
+    def reload_air_quality(json_data):
+        data = json.loads(json_data)
+
+        value = data['arduinoData']['gas']
+
+        if value is None:
+            return '/'
+
+        if value <= 0.2:
+            return "Sehr gut"
+        elif value <= 0.4:
+            return "Gut"
+        elif value <= 0.6:
+            return "Okay"
+        elif value <= 0.8:
+            return "Schlecht"
+        else:
+            return "Sehr Schlecht"
+
+    @dashapp.callback(
+        Output("temperature", "children"),
+        [Input('intermediate-value-room', 'children')])
+    def reload_temperature(json_data):
+        data = json.loads(json_data)
+        value = data['arduinoData']['temperature']
+
+        if value is None:
+            return '/'
+
+        return str(value) + ' °C'
+
+    @dashapp.callback(
+        Output("humidity", "children"),
+        [Input('intermediate-value-room', 'children')])
+    def reload_air_quality(json_data):
+        data = json.loads(json_data)
+        value = data['arduinoData']['humidity']
+
+        if value is None:
+            return '/'
+
+        return str(value) + '%'
+
+    @dashapp.callback(
+        Output("pressure", "children"),
+        [Input('intermediate-value-room', 'children')])
+    def reload_air_quality(json_data):
+        data = json.loads(json_data)
+        value = data['arduinoData']['pressure']
+
+        if value is None:
+            return '/'
+
+        return str(value) + ' hPa'
+
+
     @dashapp.callback(
         Output('temperature_graph', "figure"),
-        [Input('intermediate-value', 'children')])
+        [Input('intermediate-value-room', 'children')])
     def show_graph(json_data):
 
         data = json.loads(json_data)
@@ -250,6 +277,7 @@ def register_callbacks(dashapp):
         data = [go.Scatter(
             x=df['hour'],
             y=df['value'],
+            connectgaps=True,
         )]
 
         fig = go.Figure(data=data, layout=layout)
@@ -258,7 +286,7 @@ def register_callbacks(dashapp):
 
     @dashapp.callback(
         Output('airquality_graph', "figure"),
-        [Input('intermediate-value', 'children')])
+        [Input('intermediate-value-room', 'children')])
     @functools.lru_cache(maxsize=32)
     def show_graph(json_data):
 
@@ -277,11 +305,14 @@ def register_callbacks(dashapp):
         data = [go.Scatter(
             x=df['hour'],
             y=df['value'],
+            connectgaps=True,
         )]
 
         fig = go.Figure(data=data, layout=layout)
         return fig
 
+
+    # Zeigt Schritte nach Auswahl an
     @dashapp.callback(
         Output("days_graph", "figure"),
         [Input('date-picker-range', 'start_date'), Input('date-picker-range', 'end_date')])
@@ -362,7 +393,10 @@ def getStepsForDay(date):
 
 
 @functools.lru_cache(maxsize=6)
-def getTemperatureForDay(date, room):
+def getTemperatureForDay(room):
+
+    date = getCurrentTime()
+
     range_start = 23
     range_end = -1
     range_iteration = -1
@@ -395,7 +429,11 @@ def getTemperatureForDay(date, room):
 
 
 @functools.lru_cache(maxsize=6)
-def getGasForDay(date, room):
+def getGasForDay(room):
+
+    date = getCurrentTime()
+
+
     range_start = 23
     range_end = -1
     range_iteration = -1
@@ -448,12 +486,12 @@ def getAccInfos():
     return json_file
 
 
-def createDataframe(df):
+def createDataframe(df, empty_values=0):
     for i in range(0, 24):
         if i not in df['hour'].values:
             df_new = pd.DataFrame({
                 'hour': [i],
-                'value': [0],
+                'value': empty_values,
             })
             df = df.append(df_new)
 
@@ -462,7 +500,10 @@ def createDataframe(df):
     return df
 
 
-def getCurrentArduino(room, date):
+def getCurrentArduino(room):
+
+    date = getCurrentTime()
+
     docRef = store.document(
         'rooms/' + str(room) + '/' + str(date.year) + '/' + str(date.month) + '/'
         + str(date.day) + '/' + str(date.hour))

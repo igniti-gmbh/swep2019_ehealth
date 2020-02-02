@@ -231,6 +231,10 @@ loggedin = html.Div(
             id='intermediate-value',
             style={'display': 'none'}
         ),
+        html.Div(
+            id='intermediate-value-room',
+            style={'display': 'none'}
+        ),
 
         dcc.Interval(
             id='interval-component',
