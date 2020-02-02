@@ -123,10 +123,17 @@ void loop() {
 
 
   //lese sensor aus
-  if (! bme.performReading()) {
-    Serial.println("Failed to perform reading :(");
-    return;
-  }
+
+  for (int i = 0; i < 200; i++)
+    if (! bme.performReading()) {
+      Serial.println("Failed to perform reading :(");
+      return;
+    } else {
+
+
+      Serial.println(max(min(1.0 - double(bme.gas_resistance / 350000.0),1.0),0.0));
+
+     }
 
   //hole die aktuelle Zeit
   timeClient.update();
@@ -140,7 +147,7 @@ void loop() {
   appendData("temperature", bme.temperature, &json);
   appendData("pressure", bme.pressure, &json);
   appendData("humidity", bme.humidity, &json);
-  appendData("gas", 1.0 - double(bme.gas_resistance / 100000.0), &json);
+  appendData("gas", max(min(1.0 - double(bme.gas_resistance / 350000.0),1.0),0.0), &json);
   Serial.println(bme.gas_resistance);
   sendData(&json, timeClient.getEpochTime());
   //warte bis zum nächsten durchlauf
@@ -175,12 +182,12 @@ void appendData(char* category, double data, FirebaseJson* json) {
     }*/
 }
 
-void sendData(  FirebaseJson* json,int time) {
+void sendData(  FirebaseJson* json, int time) {
 
   char path[64];
-  json->set("time",time);
+  json->set("time", time);
   sprintf(path, "/%s", deviceName);
-  
+
   if (Firebase.pushJSON(firebaseData, path, *json)) {
 
     Serial.println(firebaseData.dataPath());
