@@ -36,8 +36,22 @@
 \headcommand {\beamer@subsectionentry {0}{4}{2}{9}{Webinterface}}
 \headcommand {\slideentry {4}{2}{1}{9/9}{Webinterface}{0}}
 \headcommand {\beamer@framepages {9}{9}}
-\headcommand {\beamer@partpages {1}{9}}
+\headcommand {\beamer@sectionpages {8}{9}}
+\headcommand {\beamer@subsectionpages {9}{9}}
+\headcommand {\sectionentry {5}{SCRUM}{10}{SCRUM}{0}}
 \headcommand {\beamer@subsectionpages {10}{9}}
-\headcommand {\beamer@sectionpages {10}{9}}
-\headcommand {\beamer@documentpages {9}}
-\headcommand {\gdef \inserttotalframenumber {9}}
+\headcommand {\beamer@subsectionentry {0}{5}{1}{10}{Sprints}}
+\headcommand {\beamer@subsectionpages {10}{9}}
+\headcommand {\beamer@subsectionentry {0}{5}{2}{10}{Vor und Nachteile}}
+\headcommand {\slideentry {5}{2}{1}{10/10}{Vor und Nachteile}{0}}
+\headcommand {\beamer@framepages {10}{10}}
+\headcommand {\slideentry {5}{2}{2}{11/11}{Vor und Nachteile}{0}}
+\headcommand {\beamer@framepages {11}{11}}
+\headcommand {\beamer@subsectionpages {10}{11}}
+\headcommand {\slideentry {5}{3}{1}{12/12}{}{0}}
+\headcommand {\beamer@framepages {12}{12}}
+\headcommand {\beamer@partpages {1}{12}}
+\headcommand {\beamer@subsectionpages {12}{12}}
+\headcommand {\beamer@sectionpages {10}{12}}
+\headcommand {\beamer@documentpages {12}}
+\headcommand {\gdef \inserttotalframenumber {12}}

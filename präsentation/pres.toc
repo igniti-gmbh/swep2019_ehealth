@@ -6,3 +6,6 @@
 \beamer@sectionintoc {4}{Frontend}{8}{0}{4}
 \beamer@subsectionintoc {4}{1}{App}{8}{0}{4}
 \beamer@subsectionintoc {4}{2}{Webinterface}{9}{0}{4}
+\beamer@sectionintoc {5}{SCRUM}{10}{0}{5}
+\beamer@subsectionintoc {5}{1}{Sprints}{10}{0}{5}
+\beamer@subsectionintoc {5}{2}{Vor und Nachteile}{10}{0}{5}
