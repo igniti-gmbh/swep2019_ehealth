@@ -130,6 +130,44 @@ body {
   margin-bottom: 60px;
 }
 
+.DateRangePickerInput__withBorder {
+    border: none;
+}
+
+.DateRangePickerInput {
+    background-color: transparent;
+}
+
+.DateRangePickerInput_arrow_svg {
+    fill: #ffff;
+}
+
+.DateInput {
+    background: transparent;
+}
+
+.SingleDatePickerInput {
+    background-color: transparent;
+}
+
+.DateInput_input {
+    color: #ffff;
+}
+
+input[type="email"], input[type="number"], input[type="search"], input[type="text"], input[type="tel"], input[type="url"], input[type="password"], textarea, select {
+
+    background-color: transparent;
+    border: 1px solid #d1d1d1;
+}
+
+#dateRangeDiv{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 25px;
+  margin-top: 15px;
+}
+
 #tripleContainer {
   display: flex;
   flex: 3;

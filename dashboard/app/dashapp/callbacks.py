@@ -11,8 +11,7 @@ from dateutil import tz
 
 
 def register_callbacks(dashapp):
-
-    #Verwaltet die Daten für die Schritte
+    # Verwaltet die Daten für die Schritte
     @dashapp.callback(
         Output('intermediate-value', 'children'),
         [Input('date-picker', 'date'), Input('interval-component', 'n_intervals')], )
@@ -51,12 +50,11 @@ def register_callbacks(dashapp):
 
         arduinoData = getCurrentArduino(room)
 
-
         temperature_hours_today = getTemperatureForDay(room)
         temperature_hour_df = createDataframe(temperature_hours_today, None)
 
         gas_hours_today = getGasForDay(room)
-        gas_hour_df = createDataframe(gas_hours_today,None)
+        gas_hour_df = createDataframe(gas_hours_today, None)
 
         datasets = {
             'temperatureHoursDf': temperature_hour_df.to_json(orient='split', date_format='iso'),
@@ -67,7 +65,7 @@ def register_callbacks(dashapp):
 
         return json.dumps(datasets)
 
-    #Anzeige von Uhrzeit und Verbindung
+    # Anzeige von Uhrzeit und Verbindung
     @dashapp.callback(
         Output("connection_status", "children"),
         [Input('intermediate-value', 'children')])
@@ -91,7 +89,7 @@ def register_callbacks(dashapp):
         timestamp = getCurrentTime()
         return timestamp.time().strftime('%H:%M')
 
-#Anzeige der Daten in der linken Leiste
+    # Anzeige der Daten in der linken Leiste
 
     @dashapp.callback(
         Output("displayName", "children"),
@@ -141,7 +139,7 @@ def register_callbacks(dashapp):
         else:
             return str(age)
 
-    #Schrittziel und Schritte allgemein
+    # Schrittziel und Schritte allgemein
 
     @dashapp.callback(
         Output("step_goal", "children"),
@@ -195,8 +193,7 @@ def register_callbacks(dashapp):
         fig = go.Figure(data=data, layout=layout)
         return fig
 
-
-    #Anzeigen der Arduino Daten
+    # Anzeigen der Arduino Daten
 
     @dashapp.callback(
         Output("airquality", "children"),
@@ -209,13 +206,13 @@ def register_callbacks(dashapp):
         if value is None:
             return '/'
 
-        if value <= 0.2:
+        if value <= 0.15:
             return "Sehr gut"
-        elif value <= 0.4:
+        elif value <= 0.25:
             return "Gut"
-        elif value <= 0.6:
+        elif value <= 0.3:
             return "Okay"
-        elif value <= 0.8:
+        elif value <= 0.5:
             return "Schlecht"
         else:
             return "Sehr Schlecht"
@@ -256,7 +253,6 @@ def register_callbacks(dashapp):
 
         return str(value) + ' hPa'
 
-
     @dashapp.callback(
         Output('temperature_graph', "figure"),
         [Input('intermediate-value-room', 'children')])
@@ -272,17 +268,18 @@ def register_callbacks(dashapp):
                       paper_bgcolor="#262a30",
                       legend=dict(font=dict(size=10), orientation="h"),
                       xaxis=dict(type='category', title='Stunde', color='#ededed'),
-                      yaxis=dict(title='Luftqualität', rangemode='nonnegative', color='#ededed'), )
+                      yaxis=dict(title='Schadstoffe in der Luft', rangemode='nonnegative', color='#ededed'), )
 
         data = [go.Scatter(
             x=df['hour'],
             y=df['value'],
+            mode='lines+markers',
             connectgaps=True,
+            line=dict(color='#EFBD12', width=4),
         )]
 
         fig = go.Figure(data=data, layout=layout)
         return fig
-
 
     @dashapp.callback(
         Output('airquality_graph', "figure"),
@@ -306,11 +303,12 @@ def register_callbacks(dashapp):
             x=df['hour'],
             y=df['value'],
             connectgaps=True,
+            mode='lines+markers',
+            line=dict(color='#EFBD12', width=4),
         )]
 
         fig = go.Figure(data=data, layout=layout)
         return fig
-
 
     # Zeigt Schritte nach Auswahl an
     @dashapp.callback(
@@ -394,7 +392,6 @@ def getStepsForDay(date):
 
 @functools.lru_cache(maxsize=6)
 def getTemperatureForDay(room):
-
     date = getCurrentTime()
 
     range_start = 23
@@ -421,7 +418,7 @@ def getTemperatureForDay(room):
             if int(docID) == iterated_hour.hour:
                 df_new = pd.DataFrame({
                     'hour': [iterated_hour.hour],
-                    'value': doc.get().get('temperatureAverage'),
+                    'value': round(doc.get().get('temperatureAverage'), 2),
                 })
                 df = df.append(df_new)
 
@@ -430,9 +427,7 @@ def getTemperatureForDay(room):
 
 @functools.lru_cache(maxsize=6)
 def getGasForDay(room):
-
     date = getCurrentTime()
-
 
     range_start = 23
     range_end = -1
@@ -458,7 +453,7 @@ def getGasForDay(room):
             if int(docID) == iterated_hour.hour:
                 df_new = pd.DataFrame({
                     'hour': [iterated_hour.hour],
-                    'value': doc.get().get('gasAverage'),
+                    'value': round(doc.get().get('gasAverage'), 2),
                 })
                 df = df.append(df_new)
 
@@ -501,7 +496,6 @@ def createDataframe(df, empty_values=0):
 
 
 def getCurrentArduino(room):
-
     date = getCurrentTime()
 
     docRef = store.document(

@@ -139,24 +139,27 @@ loggedin = html.Div(
         ),
         html.Div([
             html.Div(
-                [dcc.DatePickerRange(
-                    id='date-picker-range',
-                    start_date=str(datetime.datetime.now() - datetime.timedelta(days=7)),
-                    end_date_placeholder_text='Select a date!',
-                    max_date_allowed=str(datetime.datetime.now()),
-                    display_format='DD.MM.YYYY',
-                ), dcc.Graph(id="days_graph",
-                             config={'displayModeBar': False},
-                             figure={
-                                 'layout': {
-                                     'plot_bgcolor': colors['background'],
-                                     'paper_bgcolor': colors['background'],
-                                     'font': {
-                                         'color': colors['text']
-                                     }
-                                 }
-                             }
-                             )],
+                [html.H5('Zeitverlauf pro Tag', style={'text-align': 'center'}),
+                 html.Div([dcc.DatePickerRange(
+                     id='date-picker-range',
+                     start_date=str(datetime.datetime.now() - datetime.timedelta(days=7)),
+                     end_date_placeholder_text='Select a date!',
+                     max_date_allowed=str(datetime.datetime.now()),
+                     display_format='DD.MM.YYYY',
+                     className='dateRange',
+                 )
+                 ], id='dateRangeDiv'), dcc.Graph(id="days_graph",
+                                                  config={'displayModeBar': False},
+                                                  figure={
+                                                      'layout': {
+                                                          'plot_bgcolor': colors['background'],
+                                                          'paper_bgcolor': colors['background'],
+                                                          'font': {
+                                                              'color': colors['text']
+                                                          }
+                                                      }
+                                                  }
+                                                  )],
                 className="pretty_container row",
             ),
         ],
@@ -195,7 +198,7 @@ loggedin = html.Div(
             className="twelve columns",
         ),
         html.Div([
-            html.Div([html.H4('Luftqualität', style={'text-align':'center'}),
+            html.Div([html.H4('Schadstoffe in der Luft', style={'text-align': 'center'}),
                       dcc.Graph(id="airquality_graph",
                                 config={'displayModeBar': False},
                                 figure={
@@ -210,7 +213,7 @@ loggedin = html.Div(
                                 )],
                      className='pretty_container six columns'),
 
-            html.Div([html.H4('Temperatur', style={'text-align':'center'}),
+            html.Div([html.H4('Temperatur', style={'text-align': 'center'}),
                       dcc.Graph(id="temperature_graph",
                                 config={'displayModeBar': False},
                                 figure={
@@ -225,7 +228,7 @@ loggedin = html.Div(
                                 )],
                      className='pretty_container six columns'),
         ],
-        className='row flex-display'),
+            className='row flex-display'),
         # Hidden div inside the app that stores the intermediate value
         html.Div(
             id='intermediate-value',
