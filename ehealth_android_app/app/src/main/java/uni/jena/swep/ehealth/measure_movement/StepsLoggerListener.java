@@ -2,14 +2,8 @@ package uni.jena.swep.ehealth.measure_movement;
 
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
-import android.util.Log;
 import android.widget.Toast;
 
-import org.threeten.bp.Instant;
-import org.threeten.bp.LocalDateTime;
-import org.threeten.bp.ZoneId;
-
-import java.util.Date;
 import java.util.List;
 
 public class StepsLoggerListener extends MovementLoggerListener {
@@ -20,14 +14,7 @@ public class StepsLoggerListener extends MovementLoggerListener {
 
     @Override
     public void onSensorChanged(SensorEvent event) {
-        try {
-            Toast.makeText(myContext, "Steps done: " + event.values[0], Toast.LENGTH_LONG).show();
-        } catch (Error e) {
-        }
-
         if (event.values.length > 0) {
-            Log.v("tracking", "New Steps: " + event.values[0]);
-
             // create new step entity
             StepEntity se = new StepEntity();
             se.setTime(event.timestamp);
@@ -42,7 +29,7 @@ public class StepsLoggerListener extends MovementLoggerListener {
                 offset = last_steps.get(0).getStep_offset();
 
                 // check if reboot happend
-                if ((int) event.values[0] >= offset) {
+                if ((int) event.values[0] <= offset) {
                     // reset offset
                     offset = 0;
                 }
@@ -58,8 +45,16 @@ public class StepsLoggerListener extends MovementLoggerListener {
             // insert actual done steps into database
             se.setAmount((int) event.values[0] - offset);
             db.getStepDAO().insert(se);
+
+            try {
+                Toast.makeText(myContext, "Steps insert: " + se.getAmount(), Toast.LENGTH_LONG).show();
+            } catch (Error e) {
+            }
         } else {
-            Log.v("tracking", "Event values are empty for steplogger...");
+            try {
+                Toast.makeText(myContext, "No steps value in event!", Toast.LENGTH_LONG).show();
+            } catch (Error e) {
+            }
         }
     }
 

@@ -64,6 +64,7 @@ public class SignUpActivity extends AppCompatActivity {
                         @Override
                         public void onFailure(@NonNull Exception e) {
                             Log.v("firebase", e.getLocalizedMessage());
+                            Toast.makeText(SignUpActivity.this, "Registration Failed: " + e.getLocalizedMessage(), Toast.LENGTH_LONG).show();
                         }
                     });
                 }

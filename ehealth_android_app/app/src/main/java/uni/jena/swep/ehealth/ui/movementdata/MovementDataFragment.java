@@ -19,6 +19,17 @@ import uni.jena.swep.ehealth.data_visualisation.XAxisFormatterDay;
 import uni.jena.swep.ehealth.data_visualisation.XAxisFormatterDayHours;
 import uni.jena.swep.ehealth.measure_movement.StepEntity;
 
+import com.anychart.AnyChart;
+import com.anychart.AnyChartView;
+import com.anychart.chart.common.dataentry.DataEntry;
+import com.anychart.chart.common.dataentry.ValueDataEntry;
+import com.anychart.charts.Cartesian;
+import com.anychart.charts.Pie;
+import com.anychart.core.cartesian.series.Column;
+import com.anychart.enums.Anchor;
+import com.anychart.enums.HoverMode;
+import com.anychart.enums.Position;
+import com.anychart.enums.TooltipPositionMode;
 import com.github.mikephil.charting.charts.BarChart;
 import com.github.mikephil.charting.charts.LineChart;
 import com.github.mikephil.charting.components.XAxis;
@@ -29,10 +40,13 @@ import com.github.mikephil.charting.data.BarEntry;
 import com.github.mikephil.charting.data.Entry;
 import com.github.mikephil.charting.data.LineData;
 import com.github.mikephil.charting.data.LineDataSet;
+import com.github.mikephil.charting.renderer.BarChartRenderer;
+import com.github.mikephil.charting.renderer.DataRenderer;
 import com.google.gson.Gson;
 
 import org.threeten.bp.LocalDate;
 import org.threeten.bp.LocalDateTime;
+import org.threeten.bp.LocalTime;
 import org.threeten.bp.ZoneId;
 
 import java.util.ArrayList;
@@ -50,7 +64,7 @@ public class MovementDataFragment extends Fragment {
 
         // init firebase interface
         FirebaseInterface firebaseInterface = new FirebaseInterface(getActivity().getApplicationContext());
-        firebaseInterface.updateDailySteps();
+        firebaseInterface.updateDailyData();
 
         // get steps
         List<TotalStepHourly> steps = getStepsOfDay();
@@ -60,18 +74,78 @@ public class MovementDataFragment extends Fragment {
 
         Log.v("datavisual", "Amount steps today: " + steps.size());
 
-        for (TotalStepHourly step: steps) {
+        for (TotalStepHourly step : steps) {
             Log.v("datavisual", "step: " + step.getTimestamp() + " have " + step.getNumber_steps());
         }
 
         // create bar chart of daily steps
-        root = this.createBarChartMovementDaily(root, steps);
+        root = this.createColumnChartMovementDaily(root, steps);
+
+        return root;
+    }
+
+    private View createColumnChartMovementDaily(View root, List<TotalStepHourly> steps) {
+        AnyChartView anyChartView = root.findViewById(R.id.movement_chart);
+
+        Cartesian cartesian = AnyChart.column();
+
+        List<DataEntry> data = new ArrayList<>();
+
+        LocalDateTime ldt_actual = LocalDateTime.now();
+        LocalDateTime last_date = LocalDateTime.of(ldt_actual.toLocalDate(), LocalTime.of(0, 0));
+
+        int actual_step = 0;
+
+        while (last_date.isAfter(ldt_actual) == false) {
+            String entry = String.valueOf(last_date.getHour());
+            while (actual_step < steps.size() && steps.get(actual_step).getTimestamp().toLocalDate().isBefore(last_date.toLocalDate())) {
+                actual_step++;
+            }
+            if (actual_step < steps.size()) {
+                if (steps.get(actual_step).getTimestamp().isEqual(last_date)) {
+                    data.add(new ValueDataEntry(entry, steps.get(actual_step).getNumber_steps()));
+                    actual_step++;
+                } else {
+                    data.add(new ValueDataEntry(entry, 0));
+                }
+            } else {
+                data.add(new ValueDataEntry(entry, 0));
+            }
+            Log.v("datavisual", "added dataentry for " + entry);
+            last_date = last_date.plusHours(1);
+        }
+
+        Column column = cartesian.column(data);
+
+        column.tooltip()
+                .titleFormat("{%X}")
+                .position(Position.CENTER_BOTTOM)
+                .anchor(Anchor.CENTER_BOTTOM)
+                .offsetX(0d)
+                .offsetY(5d)
+                .format("Schritte: {%Value}{groupsSeparator: }");
+
+        cartesian.animation(true);
+        // cartesian.title("Taegliche Schritte");
+
+        cartesian.yScale().minimum(0d);
+
+        cartesian.yAxis(0).labels().format("{%Value}{groupsSeparator: }");
+
+        cartesian.tooltip().positionMode(TooltipPositionMode.POINT);
+        cartesian.interactivity().hoverMode(HoverMode.BY_X);
+
+        cartesian.xAxis(0).title("Uhrzeit");
+        cartesian.yAxis(0).title("Schritte");
+
+        anyChartView.setChart(cartesian);
 
         return root;
     }
 
     // TODO make bar chart beautifuler
     private View createBarChartMovementDaily(View root, List<TotalStepHourly> steps) {
+        /*
         // create bar chart
         BarChart chart = (BarChart) root.findViewById(R.id.steps_chart);
 
@@ -109,12 +183,14 @@ public class MovementDataFragment extends Fragment {
         chart.getDescription().setEnabled(false);
 
         chart.invalidate(); // refresh
+        */
 
         return root;
     }
 
     private View createLineChartMovement(View root, List<StepEntity> steps) {
         // create line chart
+        /*
         LineChart chart = (LineChart) root.findViewById(R.id.steps_chart);
 
         // create data for chart
@@ -152,6 +228,8 @@ public class MovementDataFragment extends Fragment {
 
         chart.invalidate(); // refresh chart
 
+         */
+
         return root;
     }
 
@@ -172,7 +250,7 @@ public class MovementDataFragment extends Fragment {
         List<TotalStepHourly> hourly_steps = new ArrayList<TotalStepHourly>();
 
         // filter out steps of last day
-        for (TotalStepHourly step: hourly_steps_all) {
+        for (TotalStepHourly step : hourly_steps_all) {
             if (step.getTimestamp().isBefore(actual) && step.getTimestamp().isAfter(last_date)) {
                 hourly_steps.add(step);
             }

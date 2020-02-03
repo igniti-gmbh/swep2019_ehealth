@@ -6,7 +6,7 @@ android {
     buildToolsVersion "29.0.2"
     defaultConfig {
         applicationId "uni.jena.swep.ehealth"
-        minSdkVersion 16
+        minSdkVersion 19
         targetSdkVersion 29
         versionCode 1
         versionName "1.0"
@@ -58,6 +58,8 @@ dependencies {
     implementation 'com.google.firebase:firebase-firestore:21.3.0'
     implementation 'com.facebook.android:facebook-android-sdk:4.41.0'
     implementation 'com.twitter.sdk.android:twitter-core:3.1.1'
+    implementation 'com.google.android.gms:play-services-ads:9.4.0'
+    implementation 'com.google.firebase:firebase-core:9.4.0'
 
     // WorkManager
     def work_version = "2.2.0"
@@ -67,6 +69,7 @@ dependencies {
     implementation 'com.jakewharton.threetenabp:threetenabp:1.2.1'
 
     // charts
+    implementation 'com.github.AnyChart:AnyChart-Android:1.1.2'
     implementation 'com.github.PhilJay:MPAndroidChart:v3.1.0'
 
     // material

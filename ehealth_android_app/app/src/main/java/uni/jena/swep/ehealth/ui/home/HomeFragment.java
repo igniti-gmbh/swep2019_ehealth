@@ -49,9 +49,9 @@ public class HomeFragment extends Fragment {
         FirebaseInterface fireinterface = new FirebaseInterface(getActivity().getApplicationContext());
 
         // update steps taken and step goal
-        fireinterface.updateDailySteps();
+        fireinterface.updateDailyData();
         fireinterface.updateDailyStepGoal();
-        fireinterface.updateRoomData();
+        fireinterface.updateActualRoomData();
 
         // calculate total daily steps
         // TODO move this to another place, by opening app etc.
@@ -62,7 +62,7 @@ public class HomeFragment extends Fragment {
         int step_value = 0;
 
         for (TotalStepHourly steps : actual_steps_all) {
-            if (steps.getTimestamp().isAfter(actual_date) || steps.getTimestamp().isEqual(actual_date)) {
+            if (steps.getTimestamp().isBefore(actual_date) == false) {
                 step_value += steps.getNumber_steps();
             }
         }
@@ -71,13 +71,15 @@ public class HomeFragment extends Fragment {
         List<TotalStepDaily> steps = db.getVisualDAO().getActualDailySteps();
 
         // set actual value
-        TotalStepDaily step;
+        TotalStepDaily step = null;
         if (steps.size() > 0) {
             step = steps.get(steps.size() - 1);
-            // TODO check for steps from the actual day
-        } else {
+        }
+
+        if (step == null || step.getTimestamp().isEqual(actual_date.toLocalDate()) == false) {
             step = new TotalStepDaily();
         }
+
         step.setTimestamp(LocalDate.now());
         step.setNumber_steps(step_value);
 
@@ -151,9 +153,22 @@ public class HomeFragment extends Fragment {
         homeViewModel.getRoom_data().observe(this,new Observer<RoomData>() {
             @Override
             public void onChanged(RoomData rd) {
+                String gasvalue = "";
+
+                if (rd.getGas() < 0.2)
+                    gasvalue = "Sehr gut";
+                else if (rd.getGas() < 0.4)
+                    gasvalue = "Gut";
+                else if(rd.getGas() < 0.6)
+                    gasvalue = "Okay";
+                else if(rd.getGas() < 0.8)
+                    gasvalue = "Schlecht";
+                else
+                    gasvalue = "Sehr Schlecht";
+
                 room_temp.setText("Raumtemperatur: " + rd.getTemp() + " Celsius");
                 room_air_humidity.setText("Luftfeuchtigkeit: " + rd.getHumidity() + "%");
-                room_co2.setText("CO Gehalt: " + rd.getGas() + "");
+                room_co2.setText("CO Gehalt: " + gasvalue);
                 room_pressure.setText("Druck: " + rd.getPressure() + " Pascal");
             }
         });

@@ -18,9 +18,9 @@
     <string name="settings_sensor_steps_switch">Step tracking</string>
     <string name="settings_sensor_location_switch">Location tracking</string>
 
-    <string name="step_goal_text">Step Goal: </string>
-    <string name="daily_steps_text">Totally Steps Today: </string>
-    <string name="header_steps">Daily Steps:</string>
+    <string name="step_goal_text">Step Ziel: </string>
+    <string name="daily_steps_text">Heutige Schritte: </string>
+    <string name="header_steps">Schritte:</string>
 
     <string name="nav_header_title">Android Studio</string>
     <string name="nav_header_subtitle">android.studio@android.com</string>
@@ -40,4 +40,6 @@
     <!-- Shared Preferences Keys -->
     <string name="sp_file_name">ehealth_shared_preferences</string>
     <string name="sp_device_id_key">deviceID</string>
+    <string name="sp_user_uid">userUID</string>
+    <string name="upload_date">upload_date</string>
 </resources>

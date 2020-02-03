@@ -13,6 +13,7 @@ import androidx.work.NetworkType;
 import androidx.work.PeriodicWorkRequest;
 import androidx.work.WorkManager;
 
+import android.app.ActivityManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -26,20 +27,27 @@ import android.widget.Toast;
 
 import com.google.android.material.navigation.NavigationView;
 import com.google.firebase.auth.FirebaseAuth;
-import com.google.gson.Gson;
 import com.jakewharton.threetenabp.AndroidThreeTen;
 
 import org.threeten.bp.LocalDateTime;
 import org.threeten.bp.ZoneId;
 
+import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
+import uni.jena.swep.ehealth.data_visualisation.RoomData;
+import uni.jena.swep.ehealth.data_visualisation.StepGoal;
+import uni.jena.swep.ehealth.data_visualisation.TotalStepDaily;
+import uni.jena.swep.ehealth.data_visualisation.TotalStepHourly;
+import uni.jena.swep.ehealth.data_visualisation.VisualDatabase;
+import uni.jena.swep.ehealth.measure_movement.AcceleratorStepsLoggerListener;
 import uni.jena.swep.ehealth.measure_movement.LocationLoggerListener;
 import uni.jena.swep.ehealth.measure_movement.MovementDatabase;
 import uni.jena.swep.ehealth.measure_movement.SigMotionListener;
 import uni.jena.swep.ehealth.measure_movement.StepEntity;
 import uni.jena.swep.ehealth.measure_movement.StepsLoggerListener;
+import uni.jena.swep.ehealth.measure_movement.TrackingService;
 
 public class MainActivity extends AppCompatActivity {
     private MovementDatabase steps_db;
@@ -48,14 +56,13 @@ public class MainActivity extends AppCompatActivity {
     private Toolbar main_toolbar;
     private AppBarConfiguration mAppBarConfiguration;
 
+    private TrackingService trackingService;
+    Intent trackingIntent;
+
     LocationLoggerListener locList = new LocationLoggerListener();
     StepsLoggerListener stepList = new StepsLoggerListener();
     SigMotionListener sigList = new SigMotionListener();
-
-    // TODO save values in shared preferences
-    private boolean step_tracking = true;
-    private boolean motion_tracking = true;
-    private boolean location_tracking = true;
+    AcceleratorStepsLoggerListener accStepList = new AcceleratorStepsLoggerListener();
 
     @Override
     protected void onStart() {
@@ -77,8 +84,6 @@ public class MainActivity extends AppCompatActivity {
             Intent intent = new Intent(this, LoginActivity.class);
             startActivity(intent);
             finish();
-        } else {
-            Toast.makeText(this, "Already logged in", Toast.LENGTH_LONG).show();
         }
 
         // setup toolbar
@@ -112,22 +117,28 @@ public class MainActivity extends AppCompatActivity {
         // check if device id is assigned
         SharedPreferences sharedPref = this.getSharedPreferences(getString(R.string.sp_file_name), Context.MODE_PRIVATE);
         if (sharedPref.getString(getString(R.string.sp_device_id_key), null) == null && auth.getCurrentUser() != null) {
-            Log.v("deviceid", "No DeviceID found, generating a new one...");
+            Log.v("deviceid", "No DeviceID found, generating a new one... " + sharedPref.getString(getString(R.string.sp_device_id_key), null));
             // generate new device id and set it in shared preferences
             FirebaseInterface firebaseInterface = new FirebaseInterface(this);
             firebaseInterface.createDeviceDocument();
         }
 
+        // check if user has changed and local data needs to be cleaned
+        // TODO move this into firebase auth event listener
+        String saved_uid = sharedPref.getString(getString(R.string.sp_user_uid), null);
+        if (auth.getCurrentUser() != null && (saved_uid == null || saved_uid.equals(auth.getCurrentUser().getUid()) == false)) {
+            // clean local databases
+            this.clearRoomDB();
 
-        // create some random sensor test data
-        // TODO remove later, after debugging
-        if (false) {
-            this.createTestData();
+            // set new user uid in shared preferences
+            SharedPreferences.Editor edit = sharedPref.edit();
+            edit.putString(getString(R.string.sp_user_uid), auth.getCurrentUser().getUid());
+            edit.apply();
         }
 
         // init user tracking
         // TODO let user decide which tracking modes should be activated
-        this.updateSensors();
+        // this.updateSensors();
 
         // create work manager for uploading data
         Constraints constraints = new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build();
@@ -136,6 +147,32 @@ public class MainActivity extends AppCompatActivity {
 
         // start work manager for uploading data
         WorkManager.getInstance(this).enqueue(uploadWorkRequest);
+
+        // check for running background trackerservice
+        trackingService = new TrackingService(this);
+        trackingIntent = new Intent(this, trackingService.getClass());
+
+        if (!isBackgroundTrackerRunning(trackingService.getClass())) {
+            // TODO check for api level and use different approaches
+            startForegroundService(trackingIntent);
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        stopService(trackingIntent);
+        super.onDestroy();
+    }
+
+    private boolean isBackgroundTrackerRunning(Class<?> serviceClass) {
+        ActivityManager manager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+        for (ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
+            if (serviceClass.getName().equals(service.service.getClassName())) {
+                return true;
+            }
+        }
+        Log.v("backgroundservice", "trackerservice isn't running...");
+        return false;
     }
 
     private void updateSensors() {
@@ -144,8 +181,38 @@ public class MainActivity extends AppCompatActivity {
         this.locList.startListeningLocations(MainActivity.this);
         boolean sensor_steps_active = this.stepList.startListening(MainActivity.this);
 
-        Log.v("sensors", "step sensor: " + sensor_steps_active);
-        Log.v("sensors", "motion sensor: " + sensor_motion_active);
+        // use available sensors
+        if (sensor_steps_active == false) {
+            boolean sensor_acc_steps_active = this.accStepList.startListening(MainActivity.this);
+
+            if (sensor_acc_steps_active) {
+                Log.v("sensors", "using accelerator as step sensor");
+            }
+            else {
+                // TODO handle sensors not available -> print message?
+                Log.v("sensors", "no sensors available, can't track anything...");
+            }
+        }
+        else {
+            Log.v("sensors", "using step counter");
+        }
+    }
+
+    private void clearRoomDB() {
+        MovementDatabase mdb = Room.databaseBuilder(getApplicationContext(), MovementDatabase.class, "mvmtDB").allowMainThreadQueries().fallbackToDestructiveMigration().build();
+        VisualDatabase vdb = Room.databaseBuilder(getApplicationContext(), VisualDatabase.class, "visualDB").allowMainThreadQueries().fallbackToDestructiveMigration().build();
+
+        List<StepEntity> step_entitys = mdb.getStepDAO().getItems();
+        mdb.getStepDAO().deleteMultiple(step_entitys);
+
+        List<RoomData> room_data = vdb.getVisualDAO().getAllRoomData();
+        vdb.getVisualDAO().deleteRoomData(room_data);
+        List<StepGoal> step_goal = vdb.getVisualDAO().getAllStepGoals();
+        vdb.getVisualDAO().deleteStepGoals(step_goal);
+        List<TotalStepDaily> steps_daily = vdb.getVisualDAO().getAllTotalStepsDaily();
+        vdb.getVisualDAO().deleteTotalStepDaily(steps_daily);
+        List<TotalStepHourly> steps_hourly = vdb.getVisualDAO().getAllTotalStepsHourly();
+        vdb.getVisualDAO().deleteTotalStepHourly(steps_hourly);
     }
 
     private void createSwitchListener() {

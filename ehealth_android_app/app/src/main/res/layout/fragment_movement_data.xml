@@ -5,47 +5,54 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginLeft="32dp"
-        android:layout_marginRight="32dp"
-        android:orientation="vertical">
-
-        <TextView
-            android:id="@+id/movement_header"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Bewegungsdaten"
-            android:textAppearance="@style/TextAppearance.AppCompat.Large"
-            android:layout_marginBottom="30dp"
-            android:layout_marginTop="10dp"
-            android:paddingLeft="15dp"/>
+    <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+        android:layout_width="fill_parent"
+        android:layout_height="fill_parent"
+        android:fillViewport="true">
 
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:orientation="vertical"
-            android:background="@color/white">
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="32dp"
+            android:layout_marginRight="32dp"
+            android:orientation="vertical">
 
             <TextView
-                android:id="@+id/steps_daily_header"
+                android:id="@+id/movement_header"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Taegliche Schritte:"
-                android:textAppearance="@style/TextAppearance.AppCompat.Medium"
-                android:paddingLeft="15dp"
-                android:paddingTop="15dp"/>
-
-            <com.github.mikephil.charting.charts.BarChart
-                android:id="@+id/steps_chart"
-                android:layout_width="match_parent"
-                android:layout_height="600dp"
                 android:layout_marginTop="10dp"
-                 />
+                android:layout_marginBottom="30dp"
+                android:paddingLeft="15dp"
+                android:text="Bewegungsdaten"
+                android:textAppearance="@style/TextAppearance.AppCompat.Large" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@color/white"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/steps_daily_header"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingLeft="15dp"
+                    android:paddingTop="15dp"
+                    android:paddingBottom="20dp"
+                    android:text="Tägliche Schritte:"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Medium" />
+
+                <com.anychart.AnyChartView
+                    android:id="@+id/movement_chart"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    />
+            </LinearLayout>
+
+
         </LinearLayout>
 
-
-    </LinearLayout>
+    </ScrollView>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

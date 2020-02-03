@@ -19,7 +19,7 @@ public interface VisualDAO {
     @Update
     public void update(TotalStepDaily... items);
     @Delete
-    public void delete(TotalStepDaily item);
+    public void deleteTotalStepDaily(List<TotalStepDaily> items);
 
     @Query("SELECT * FROM totalstepsdaily")
     public List<TotalStepDaily> getAllTotalStepsDaily();
@@ -33,13 +33,15 @@ public interface VisualDAO {
     @Update
     public void update(TotalStepHourly... items);
     @Delete
-    public void delete(TotalStepHourly item);
+    public void deleteTotalStepHourly(List<TotalStepHourly> items);
 
     @Query("SELECT * FROM totalstepshourly")
     public List<TotalStepHourly> getAllTotalStepsHourly();
     // TODO fix this query and use it instead of getAllSteps...
     @Query("SELECT * FROM totalstepshourly WHERE date(timestamp/1000, 'unixepoch')=:dateInSeconds")
     public List<TotalStepHourly> getHourlyStepsFromDay(long dateInSeconds);
+    @Query("SELECT * FROM totalstepshourly WHERE timestamp=:time")
+    public List<TotalStepHourly> getHourlyStepsByTimestamp(long time);
 
     // step goal
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -48,10 +50,16 @@ public interface VisualDAO {
     @Query("SELECT * FROM stepgoal")
     public List<StepGoal> getAllStepGoals();
 
+    @Delete
+    public void deleteStepGoals(List<StepGoal> step_goals);
+
     // room data
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     public void insert(RoomData item);
 
     @Query("SELECT * FROM roomdata")
     public List<RoomData> getAllRoomData();
+
+    @Delete
+    public void deleteRoomData(List<RoomData> room_data);
 }

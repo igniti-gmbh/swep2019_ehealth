@@ -10,10 +10,10 @@ public class RoomData {
     @PrimaryKey(autoGenerate = true)
     private int id;
 
-    private int temp;
-    private int pressure;
-    private int gas;
-    private int humidity;
+    private double temp;
+    private double pressure;
+    private double gas;
+    private double humidity;
 
     public int getId() {
         return id;
@@ -23,35 +23,35 @@ public class RoomData {
         this.id = id;
     }
 
-    public int getTemp() {
+    public double getTemp() {
         return temp;
     }
 
-    public void setTemp(int temp) {
+    public void setTemp(double temp) {
         this.temp = temp;
     }
 
-    public int getPressure() {
+    public double getPressure() {
         return pressure;
     }
 
-    public void setPressure(int pressure) {
+    public void setPressure(double pressure) {
         this.pressure = pressure;
     }
 
-    public int getGas() {
+    public double getGas() {
         return gas;
     }
 
-    public void setGas(int gas) {
+    public void setGas(double gas) {
         this.gas = gas;
     }
 
-    public int getHumidity() {
+    public double getHumidity() {
         return humidity;
     }
 
-    public void setHumidity(int humidity) {
+    public void setHumidity(double humidity) {
         this.humidity = humidity;
     }
 }

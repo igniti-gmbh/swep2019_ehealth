@@ -2,6 +2,7 @@ package uni.jena.swep.ehealth;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.net.ConnectivityManager;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -24,6 +25,7 @@ import com.jakewharton.threetenabp.AndroidThreeTen;
 import org.threeten.bp.LocalDate;
 import org.threeten.bp.LocalDateTime;
 import org.threeten.bp.LocalTime;
+import org.threeten.bp.ZoneId;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -50,14 +52,18 @@ public class FirebaseInterface {
     public FirebaseInterface(Context app_context) {
         this.app_context = app_context;
 
-        // init time
-        AndroidThreeTen.init(app_context);
+        // check for internet connection
+        if (this.isNetworkConnected(app_context)) {
 
-        // init database
-        this.db = Room.databaseBuilder(app_context, VisualDatabase.class, "visualDB").allowMainThreadQueries().fallbackToDestructiveMigration().build();
+            // init time
+            AndroidThreeTen.init(app_context);
 
-        // init firebase
-        this.loginFirebase();
+            // init database
+            this.db = Room.databaseBuilder(app_context, VisualDatabase.class, "visualDB").allowMainThreadQueries().fallbackToDestructiveMigration().build();
+
+            // init firebase
+            this.loginFirebase();
+        }
     }
 
     private void loginFirebase() {
@@ -104,53 +110,6 @@ public class FirebaseInterface {
 
             // init firestore
             final FirebaseFirestore firestore = FirebaseFirestore.getInstance();
-
-            // get daily steps
-            // TODO use uid instead of email
-            /*
-            firestore.collection("users").whereEqualTo("email", this.user.getEmail()).get().addOnCompleteListener(new OnCompleteListener<QuerySnapshot>() {
-                @Override
-                public void onComplete(@NonNull Task<QuerySnapshot> task) {
-                    if (task.isSuccessful()) {
-                        for (QueryDocumentSnapshot document : task.getResult()) {
-                            firestore.collection("users").document(document.getId()).collection(year_str).document(month_str).collection(day_str).document("totalSteps").get()
-                                    .addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
-                                        @Override
-                                        public void onComplete(@NonNull Task<DocumentSnapshot> task) {
-                                            // get value from firestore
-                                            if (task.getResult().getDouble("value") != null) {
-                                                int step_value = task.getResult().getDouble("value").intValue();
-
-                                                // get actual value from local database
-                                                List<TotalStepDaily> steps = db.getVisualDAO().getActualDailySteps();
-
-                                                // set actual value
-                                                TotalStepDaily step;
-                                                if (steps.size() > 0) {
-                                                    step = steps.get(steps.size() - 1);
-                                                    // TODO check for steps from the actual day
-                                                } else {
-                                                    step = new TotalStepDaily();
-                                                }
-                                                step.setTimestamp(LocalDate.now());
-                                                step.setNumber_steps(step_value);
-
-                                                // insert in local database
-                                                db.getVisualDAO().insert(step);
-
-                                                Log.d("firebase", "Updated totalSteps in local database: " + step.getNumber_steps());
-                                            } else {
-                                                Log.v("firebase", "totalSteps daily is null");
-                                            }
-                                        }
-                                    });
-                        }
-                    } else {
-                        Log.d("firebase", "Error getting documents: ", task.getException());
-                    }
-                }
-            });
-            */
 
             // get step goal
             // TODO use uid instead of email
@@ -199,12 +158,19 @@ public class FirebaseInterface {
 
     }
 
-    // TODO room db could be access simultaniously and data could get lost! -> split room data into four entities
-    public void updateRoomData() {
+    // TODO room db could be access simultaneously and data could get lost! -> split room data into four entities
+    public void updateActualRoomData() {
         // check if user is logged in
         if (this.is_logged_in) {
             // init firestore
             final FirebaseFirestore firestore = FirebaseFirestore.getInstance();
+
+            // get actual date
+            LocalDateTime ldt = LocalDateTime.now();
+            final int year = ldt.getYear();
+            final int month = ldt.getMonthValue();
+            final int day = ldt.getDayOfMonth();
+            final int hour = ldt.getHour();
 
             firestore.collection("users").whereEqualTo("email", this.user.getEmail()).get().addOnCompleteListener(new OnCompleteListener<QuerySnapshot>() {
                 @Override
@@ -214,89 +180,36 @@ public class FirebaseInterface {
                             if (document.getDouble("room") != null) {
                                 final int roomId = document.getDouble("room").intValue();
 
-                                firestore.collection("rooms").document(Integer.toString(roomId)).collection("gas").document("gasvalue").get()
-                                        .addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
-                                            @Override
-                                            public void onComplete(@NonNull Task<DocumentSnapshot> task) {
-                                                if (task.getResult().getDouble("value") != null) {
-                                                    List<RoomData> room_data = db.getVisualDAO().getAllRoomData();
-                                                    RoomData rd;
+                                firestore.collection("rooms").document(Integer.toString(roomId)).collection(Integer.toString(year)).document(Integer.toString(month)).collection(Integer.toString(day)).document(Integer.toString(hour)).get().addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
+                                    @Override
+                                    public void onComplete(@NonNull Task<DocumentSnapshot> task) {
+                                        if (task.getResult().getDouble("values") != null) {
+                                            List<RoomData> room_data = db.getVisualDAO().getAllRoomData();
+                                            RoomData rd;
 
-                                                    if (room_data.size() > 0) {
-                                                        rd = room_data.get(0);
-                                                        rd.setGas(task.getResult().getDouble("value").intValue());
-                                                    } else {
-                                                        rd = new RoomData();
-                                                        rd.setGas(task.getResult().getDouble("value").intValue());
-                                                    }
-
-                                                    db.getVisualDAO().insert(rd);
-                                                }
+                                            if (room_data.size() > 0) {
+                                                rd = room_data.get(0);
+                                            } else {
+                                                rd = new RoomData();
                                             }
-                                        });
 
-                                firestore.collection("rooms").document(Integer.toString(roomId)).collection("pressure").document("pressurevalue").get()
-                                        .addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
-                                            @Override
-                                            public void onComplete(@NonNull Task<DocumentSnapshot> task) {
-                                                if (task.getResult().getDouble("value") != null) {
-                                                    List<RoomData> room_data = db.getVisualDAO().getAllRoomData();
-                                                    RoomData rd;
+                                            // set values
+                                            if (task.getResult().getDouble("gasCurrent") != null)
+                                                rd.setGas(task.getResult().getDouble("gasCurrent").doubleValue());
 
-                                                    if (room_data.size() > 0) {
-                                                        rd = room_data.get(0);
-                                                        rd.setPressure(task.getResult().getDouble("value").intValue());
-                                                    } else {
-                                                        rd = new RoomData();
-                                                        rd.setPressure(task.getResult().getDouble("value").intValue());
-                                                    }
+                                            if (task.getResult().getDouble("humidityCurrent") != null)
+                                                rd.setHumidity(task.getResult().getDouble("humidityCurrent").doubleValue());
 
-                                                    db.getVisualDAO().insert(rd);
-                                                }
-                                            }
-                                        });
+                                            if (task.getResult().getDouble("pressureCurrent") != null)
+                                                rd.setPressure(task.getResult().getDouble("pressureCurrent").doubleValue());
 
-                                firestore.collection("rooms").document(Integer.toString(roomId)).collection("temp").document("tempvalue").get()
-                                        .addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
-                                            @Override
-                                            public void onComplete(@NonNull Task<DocumentSnapshot> task) {
-                                                if (task.getResult().getDouble("value") != null) {
-                                                    List<RoomData> room_data = db.getVisualDAO().getAllRoomData();
-                                                    RoomData rd;
+                                            if (task.getResult().getDouble("temperatureCurrent") != null)
+                                                rd.setTemp(task.getResult().getDouble("temperatureCurrent").doubleValue());
 
-                                                    if (room_data.size() > 0) {
-                                                        rd = room_data.get(0);
-                                                        rd.setTemp(task.getResult().getDouble("value").intValue());
-                                                    } else {
-                                                        rd = new RoomData();
-                                                        rd.setTemp(task.getResult().getDouble("value").intValue());
-                                                    }
-
-                                                    db.getVisualDAO().insert(rd);
-                                                }
-                                            }
-                                        });
-
-                                firestore.collection("rooms").document(Integer.toString(roomId)).collection("humidity").document("humidityvalue").get()
-                                        .addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
-                                            @Override
-                                            public void onComplete(@NonNull Task<DocumentSnapshot> task) {
-                                                if (task.getResult().getDouble("value") != null) {
-                                                    List<RoomData> room_data = db.getVisualDAO().getAllRoomData();
-                                                    RoomData rd;
-
-                                                    if (room_data.size() > 0) {
-                                                        rd = room_data.get(0);
-                                                        rd.setHumidity(task.getResult().getDouble("value").intValue());
-                                                    } else {
-                                                        rd = new RoomData();
-                                                        rd.setHumidity(task.getResult().getDouble("value").intValue());
-                                                    }
-
-                                                    db.getVisualDAO().insert(rd);
-                                                }
-                                            }
-                                        });
+                                            db.getVisualDAO().insert(rd);
+                                        }
+                                    }
+                                });
                             }
                         }
                     }
@@ -306,7 +219,7 @@ public class FirebaseInterface {
     }
 
     // TODO update other days too here?
-    public void updateDailySteps() {
+    public void updateDailyData() {
         // check if user is logged in
         if (this.is_logged_in) {
             // init firestore
@@ -316,25 +229,7 @@ public class FirebaseInterface {
             final LocalDateTime actual_date = LocalDateTime.of(LocalDate.now(), LocalTime.of(LocalTime.now().getHour(), 0));
             LocalDateTime last_date = actual_date.minusDays(1);
 
-            // get datebase values
-            // TODO use new query later and remove processing all values in database
-            //final List<TotalStepHourly> actual_steps = this.db.getVisualDAO().getHourlyStepsFromDay(actual_date.toLocalDate().atStartOfDay(ZoneId.systemDefault()).toInstant().getEpochSecond());
-            //actual_steps.addAll(this.db.getVisualDAO().getHourlyStepsFromDay(last_date.toLocalDate().atStartOfDay(ZoneId.systemDefault()).toInstant().getEpochSecond()));
-            List<TotalStepHourly> actual_steps_all = this.db.getVisualDAO().getAllTotalStepsHourly();
-            List<TotalStepHourly> actual_steps = new ArrayList<TotalStepHourly>();
-
-            for (TotalStepHourly steps : actual_steps_all) {
-                if (steps.getTimestamp().isBefore(actual_date) && steps.getTimestamp().isAfter(last_date)) {
-                    actual_steps.add(steps);
-                }
-            }
-
-            final List<TotalStepHourly> hourly_steps = actual_steps;
-
-
-            Log.v("firebase", "Number hourly steps in db (passed 24h): " + actual_steps.size());
-
-            // get passed 24 hours
+            // get values from passed 24 hours
             while (last_date.isBefore(actual_date) || actual_date.isEqual(last_date)) {
                 final String year_str = Integer.toString(last_date.getYear());
                 final String month_str = Integer.toString(last_date.getMonthValue());
@@ -342,6 +237,7 @@ public class FirebaseInterface {
                 final String hour_str = Integer.toString(last_date.getHour());
 
                 final LocalDateTime time_value = last_date;
+                final long timestamp = time_value.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
 
                 // get steps for actual timestamp
                 firestore.collection("users").whereEqualTo("email", this.user.getEmail()).get().addOnCompleteListener(new OnCompleteListener<QuerySnapshot>() {
@@ -358,26 +254,25 @@ public class FirebaseInterface {
                                                     int step_value = task.getResult().getDouble("value").intValue();
 
                                                     // check if value is in database actual
-                                                    // TODO use better check, are dates comparable (all have minutes&seconds equal zero)?
-                                                    boolean value_present = false;
-                                                    for (int i = 0; i < hourly_steps.size() && value_present == false; i++) {
-                                                        if (hourly_steps.get(i).getTimestamp().isEqual(time_value)) {
-                                                            value_present = true;
-                                                        }
-                                                    }
+                                                    List<TotalStepHourly> steps = db.getVisualDAO().getHourlyStepsByTimestamp(timestamp);
 
-                                                    // insert steps if they aren't present yet
-                                                    if (value_present == false) {
+                                                    if (steps.size() == 0) {
+                                                        // insert new steps
                                                         TotalStepHourly totalStepHourly = new TotalStepHourly();
                                                         totalStepHourly.setNumber_steps(step_value);
                                                         totalStepHourly.setTimestamp(LocalDateTime.of(time_value.getYear(), time_value.getMonth(), time_value.getDayOfMonth(), time_value.getHour(), 0, 0));
                                                         db.getVisualDAO().insert(totalStepHourly);
                                                         Log.d("firebase", "Updated hour steps: " + totalStepHourly.getTimestamp());
-                                                    } else {
-                                                        Log.v("firebase", "HourlySteps are uptodate in db");
                                                     }
-
-
+                                                    else {
+                                                        if (steps.get(0).getNumber_steps() < step_value) {
+                                                            db.getVisualDAO().deleteTotalStepHourly(steps);
+                                                            TotalStepHourly totalStepHourly = new TotalStepHourly();
+                                                            totalStepHourly.setNumber_steps(step_value);
+                                                            totalStepHourly.setTimestamp(LocalDateTime.of(time_value.getYear(), time_value.getMonth(), time_value.getDayOfMonth(), time_value.getHour(), 0, 0));
+                                                            db.getVisualDAO().insert(totalStepHourly);
+                                                        }
+                                                    }
                                                 } else {
                                                     Log.v("firebase", "hour steps is null");
                                                 }
@@ -450,8 +345,6 @@ public class FirebaseInterface {
     }
 
     public void createDeviceDocument() {
-        final SharedPreferences sp = this.app_context.getSharedPreferences(this.app_context.getString(R.string.sp_file_name), Context.MODE_PRIVATE);
-
         if (this.is_logged_in) {
             final FirebaseFirestore firestore = FirebaseFirestore.getInstance();
 
@@ -467,6 +360,7 @@ public class FirebaseInterface {
                     SharedPreferences sp = app_context.getSharedPreferences(app_context.getString(R.string.sp_file_name), Context.MODE_PRIVATE);
                     SharedPreferences.Editor edit = sp.edit();
                     edit.putString(app_context.getString(R.string.sp_device_id_key), documentReference.getId());
+                    edit.apply();
                 }
             }).addOnFailureListener(new OnFailureListener() {
                 @Override
@@ -494,9 +388,9 @@ public class FirebaseInterface {
                     if (task.isSuccessful()) {
                         for (QueryDocumentSnapshot document : task.getResult()) {
                             DocumentReference docRef = firestore.collection("devices").document(document.getId());
-                            // TODO uncomment code later
                             docRef.collection("steps").add(steps_obj);
-                            Log.v("firebase", "uploaded steps object");
+                            Log.v("firebase", "uploaded steps object: " + steps_obj.get("value") + " " + steps_obj.get("timestamp"));
+                            Log.v("firebase", "written steps to device with id " + document.getId());
                         }
                     } else {
                         Log.d("firebase", "Error getting documents: ", task.getException());
@@ -588,6 +482,12 @@ public class FirebaseInterface {
         }
 
         return steps;
+    }
+
+    private boolean isNetworkConnected(Context ctx) {
+        ConnectivityManager cm = (ConnectivityManager) ctx.getSystemService(Context.CONNECTIVITY_SERVICE);
+
+        return cm.getActiveNetworkInfo() != null && cm.getActiveNetworkInfo().isConnected();
     }
 
     public boolean isLoggedIn() {
